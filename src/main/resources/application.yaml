@@ -14,3 +14,7 @@ spring:
         format_sql: true
     show-sql: true
     open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_IP}
+      port: ${REDIS_PORT}
