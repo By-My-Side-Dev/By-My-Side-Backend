@@ -43,3 +43,15 @@ out/
 
 ### OMC ###
 .omc/
+.omx/
+
+### Claude Code ###
+.claude/settings.local.json
+
+### Logs ###
+*.log
+logs/
+
+### OS ###
+.DS_Store
+Thumbs.db
