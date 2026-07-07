@@ -60,6 +60,7 @@ public class AuthService {
      * @param request
      * @return issueTokens 메소드로 userId 반환
      */
+    @Transactional
     public TokenResponse refresh(RefreshRequest request) {
         Long userId = parseRefreshToken(request.refreshToken());
 
@@ -72,6 +73,17 @@ public class AuthService {
         if (!request.refreshToken().equals(savedToken)) {
             redisTemplate.delete(key);
             throw new BusinessException(AuthErrorCode.AUTH_LOGGED_IN_OTHER_DEVICE);
+        }
+
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> {
+                    redisTemplate.delete(key);
+                    return new BusinessException(AuthErrorCode.AUTH_SESSION_EXPIRED);
+                });
+
+        if (user.getStatus() == UserStatus.DEACTIVE) {
+            redisTemplate.delete(key);
+            throw new BusinessException(AuthErrorCode.AUTH_DEACTIVATED_USER);
         }
 
         return issueTokens(userId);
@@ -101,7 +113,7 @@ public class AuthService {
     }
 
     /**
-     * 새로운 토블 발급(발급소)
+     * 새로운 토큰 발급(발급소)
      * @param userId
      * @return 토큰을 생성해서 반환
      */
