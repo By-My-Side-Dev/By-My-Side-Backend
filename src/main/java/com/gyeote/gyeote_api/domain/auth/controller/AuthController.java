@@ -2,8 +2,10 @@ package com.gyeote.gyeote_api.domain.auth.controller;
 
 import com.gyeote.gyeote_api.domain.auth.dto.LoginRequest;
 import com.gyeote.gyeote_api.domain.auth.dto.RefreshRequest;
+import com.gyeote.gyeote_api.domain.auth.dto.SignupRequest;
 import com.gyeote.gyeote_api.domain.auth.dto.TokenResponse;
 import com.gyeote.gyeote_api.domain.auth.service.AuthService;
+import com.gyeote.gyeote_api.domain.auth.service.SignupService;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final SignupService signupService;
+
+    @PostMapping("/signup")
+    public ApiResponse<Void> signup(@Valid @RequestBody SignupRequest request) {
+        signupService.signup(request);
+        return ApiResponse.success("회원가입이 완료되었습니다.");
+    }
 
     @PostMapping("/login")
     public ApiResponse<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
