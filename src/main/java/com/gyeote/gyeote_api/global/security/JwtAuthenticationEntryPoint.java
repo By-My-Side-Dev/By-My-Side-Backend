@@ -28,7 +28,20 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setStatus(errorCode.getStatus().value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().write("""
-                {"code":"%s","message":"%s","data":null}""".formatted(errorCode.getCode(), errorCode.getMessage()));
+        response.getWriter().write(toErrorJson(errorCode));
+    }
+
+    private String toErrorJson(ErrorCode errorCode) {
+        return "{\"code\":\"%s\",\"message\":\"%s\",\"data\":null}"
+                .formatted(escapeJson(errorCode.getCode()), escapeJson(errorCode.getMessage()));
+    }
+
+    private String escapeJson(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }
