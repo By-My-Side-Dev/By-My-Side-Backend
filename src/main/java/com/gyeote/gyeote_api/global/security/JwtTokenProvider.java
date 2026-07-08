@@ -24,7 +24,6 @@ public class JwtTokenProvider {
 
     private final SecretKey key;
 
-    @Getter
     private final long accessTokenValidityMs;
 
     @Getter
@@ -121,4 +120,5 @@ public class JwtTokenProvider {
             throw new JwtException("invalid subject claim", e);
         }
     }
+
 }
