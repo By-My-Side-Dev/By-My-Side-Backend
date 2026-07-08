@@ -105,4 +105,9 @@ public class User {
     public void activate() {
         this.status = UserStatus.ACTIVE;
     }
+
+    public void linkSocialAccount(String provider, String providerUid) {
+        this.provider = provider;
+        this.providerUid = providerUid;
+    }
 }
