@@ -28,3 +28,10 @@ phone:
   enc-key: ${PHONE_ENC_KEY}         # AES-256 키 (Base64 인코딩 32바이트)
   hmac-secret: ${PHONE_HMAC_SECRET} # 블라인드 인덱스 HMAC secret
   pepper: ${PHONE_PEPPER}           # 사전 대입 방지용 고정 솔트
+
+social:
+  oauth:
+    google:
+      client-ids: ${GOOGLE_OAUTH_CLIENT_IDS:}
+    apple:
+      client-ids: ${APPLE_OAUTH_CLIENT_IDS:}
