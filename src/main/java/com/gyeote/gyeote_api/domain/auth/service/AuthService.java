@@ -1,14 +1,15 @@
 package com.gyeote.gyeote_api.domain.auth.service;
 
-import com.gyeote.gyeote_api.domain.auth.dto.LoginRequest;
-import com.gyeote.gyeote_api.domain.auth.dto.RefreshRequest;
-import com.gyeote.gyeote_api.domain.auth.dto.TokenResponse;
+import com.gyeote.gyeote_api.domain.auth.dto.*;
 import com.gyeote.gyeote_api.domain.auth.exception.AuthErrorCode;
+import com.gyeote.gyeote_api.domain.auth.social.SocialTokenVerifier;
+import com.gyeote.gyeote_api.domain.auth.social.SocialUserInfo;
 import com.gyeote.gyeote_api.domain.user.entity.User;
 import com.gyeote.gyeote_api.domain.user.entity.UserStatus;
 import com.gyeote.gyeote_api.domain.user.repository.UserRepository;
 import com.gyeote.gyeote_api.global.exception.BusinessException;
 import com.gyeote.gyeote_api.global.security.JwtTokenProvider;
+import com.gyeote.gyeote_api.global.security.OnboardingTokenProvider;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +32,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
+    private final OnboardingTokenProvider onboardingTokenProvider;
+    private final SocialTokenVerifier socialTokenVerifier;
 
     /**
      * 로그인 로직
@@ -115,9 +119,9 @@ public class AuthService {
     /**
      * 새로운 토큰 발급(발급소)
      * @param userId
-     * @return 토큰을 생성해서 반환
+     * @return 액세스 토큰, 리프레시 토큰 반환
      */
-    private TokenResponse issueTokens(Long userId) {
+    public TokenResponse issueTokens(Long userId) {
         String accessToken = jwtTokenProvider.createAccessToken(userId);
         String refreshToken = jwtTokenProvider.createRefreshToken(userId);
 
@@ -128,7 +132,44 @@ public class AuthService {
                 Duration.ofMillis(jwtTokenProvider.getRefreshTokenValidityMs())
         );
 
-        return new TokenResponse(accessToken, refreshToken,
-                jwtTokenProvider.getAccessTokenValidityMs() / 1000);
+        return new TokenResponse(accessToken, refreshToken);
     }
+
+    /**
+     * 소셜 로그인 로직
+     * @param socialLoginRequest
+     * @return 액세스 토큰, 리프레시 토큰 반환
+     */
+    @Transactional
+    public SocialLoginResponse socialLogin(SocialLoginRequest socialLoginRequest) {
+        SocialUserInfo socialUserInfo = socialTokenVerifier.verify(
+                socialLoginRequest.provider(),
+                socialLoginRequest.providerToken()
+        );
+
+        Optional<User> user = userRepository.findByProviderAndProviderUid(
+                socialUserInfo.provider().storageValue(),
+                socialUserInfo.providerUid()
+        );
+
+        // [분기 1] provider + providerUid 가입 이력이 DB에 존재하지 않을 때 회원가입 유도
+        if (user.isEmpty()) {
+            String onboardingToken = onboardingTokenProvider.createOnboardingToken(
+                    socialUserInfo.provider().storageValue(),
+                    socialUserInfo.providerUid()
+            );
+            return SocialLoginResponse.signupRequired(onboardingToken);
+        }
+
+        User loginUser = user.get();
+        if (loginUser.getStatus() == UserStatus.DEACTIVE) {
+            throw new BusinessException(AuthErrorCode.AUTH_DEACTIVATED_USER);
+        }
+
+        loginUser.updateLastLoginAt(LocalDateTime.now());
+
+        // [분기 2] provider + providerUid 가 있는 경우 AccessToken RefreshToken 발급
+        return SocialLoginResponse.loginSuccess(issueTokens(loginUser.getId()));
+    }
+
 }
