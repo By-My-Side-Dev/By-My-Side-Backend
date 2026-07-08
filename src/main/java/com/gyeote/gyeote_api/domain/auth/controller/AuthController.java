@@ -1,9 +1,6 @@
 package com.gyeote.gyeote_api.domain.auth.controller;
 
-import com.gyeote.gyeote_api.domain.auth.dto.LoginRequest;
-import com.gyeote.gyeote_api.domain.auth.dto.RefreshRequest;
-import com.gyeote.gyeote_api.domain.auth.dto.SignupRequest;
-import com.gyeote.gyeote_api.domain.auth.dto.TokenResponse;
+import com.gyeote.gyeote_api.domain.auth.dto.*;
 import com.gyeote.gyeote_api.domain.auth.service.AuthService;
 import com.gyeote.gyeote_api.domain.auth.service.SignupService;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
@@ -44,4 +41,21 @@ public class AuthController {
         authService.logout(userId);
         return ApiResponse.success("로그아웃되었습니다.");
     }
+
+    @PostMapping("/social/login")
+    public ApiResponse<SocialLoginResponse> socialLogin(
+            @Valid @RequestBody SocialLoginRequest request
+    ) {
+        SocialLoginResponse response = authService.socialLogin(request);
+        String message = response.successMessage();
+        return ApiResponse.success(message, response);
+    }
+
+    @PostMapping("/social/signup/complete")
+    public ApiResponse<SocialSignupCompleteResponse> completeSocialSignup(
+            @Valid @RequestBody SocialSignupCompleteRequest request
+    ) {
+        return ApiResponse.success("소셜 계정 설정이 완료되었습니다.", signupService.completeSocialSignup(request));
+    }
+
 }
