@@ -88,4 +88,7 @@ jobs:
           script: |
             set -e
             registry="${ACR_URI%%/*}"
+            deploy_script="/home/azureuser/app/script/deploy.sh"
             echo "$ACR_TOKEN" | docker login --username 00000000-0000-0000-0000-000000000000 --password-stdin "$registry"
+            chmod +x "$deploy_script"
+            "$deploy_script"
