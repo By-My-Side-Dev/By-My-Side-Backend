@@ -38,7 +38,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/reissue",
                                 "/api/v1/auth/social/login",
                                 "/api/v1/auth/social/signup/complete",
-                                "/actuator/health"
+                                "/health"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling

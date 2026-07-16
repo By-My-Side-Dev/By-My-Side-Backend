@@ -7,10 +7,10 @@ set -euo pipefail
 APP_DIR="/home/azureuser/app"
 DOCKER_DIR="$APP_DIR/docker"
 ACTIVE_COLOR_FILE="$APP_DIR/active_color"
-NGINX_BLUE_GREEN_DIR="/etc/nginx/blue-green"
+NGINX_BLUE_GREEN_DIR="/etc/nginx"
 NGINX_ACTIVE_LINK="$NGINX_BLUE_GREEN_DIR/active_upstream.conf"
-HEALTH_RETRY=30
-HEALTH_INTERVAL=2
+HEALTH_RETRY=45
+HEALTH_INTERVAL=3
 
 : "${ACR_URI:?ACR_URI 환경변수가 필요합니다}"
 : "${IMAGE_TAG:?IMAGE_TAG 환경변수가 필요합니다}"
@@ -38,7 +38,7 @@ docker compose -f "docker-compose.$TARGET_COLOR.yml" up -d
 echo "[deploy] health check on port $TARGET_PORT"
 healthy=false
 for i in $(seq 1 "$HEALTH_RETRY"); do
-    if curl -sf "http://localhost:${TARGET_PORT}/actuator/health" | grep -q '"status":"UP"'; then
+    if curl -sf "http://localhost:${TARGET_PORT}/health" | grep -q '"status":"UP"'; then
         healthy=true
         break
     fi
