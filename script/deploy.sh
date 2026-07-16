@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # 실행 위치: Azure /home/azureuser/gyeote-project
-# 필요 환경변수: ECR_URI, IMAGE_TAG (Github Actions가 SSH로 전달)
+# 필요 환경변수: ACR_URI, IMAGE_TAG (GitHub Actions가 SSH로 전달)
 
 APP_DIR="/home/azureuser/gyeote-project"
 DOCKER_DIR="$APP_DIR/docker"
@@ -12,9 +12,9 @@ NGINX_ACTIVE_LINK="$NGINX_BLUE_GREEN_DIR/active_upstream.conf"
 HEALTH_RETRY=30
 HEALTH_INTERVAL=2
 
-: "${ECR_URI:?ECR_URI 환경변수가 필요합니다}"
+: "${ACR_URI:?ACR_URI 환경변수가 필요합니다}"
 : "${IMAGE_TAG:?IMAGE_TAG 환경변수가 필요합니다}"
-export ECR_URI IMAGE_TAG
+export ACR_URI IMAGE_TAG
 
 CURRENT_COLOR="$(cat "$ACTIVE_COLOR_FILE" 2>/dev/null || echo blue)"
 if [ "$CURRENT_COLOR" = "blue" ]; then
@@ -25,7 +25,7 @@ else
     TARGET_PORT=8080
 fi
 
-echo "[deploy] current=$CURRENT_COLOR target=$TARGET_COLOR image=${ECR_URI}:${IMAGE_TAG}"
+echo "[deploy] current=$CURRENT_COLOR target=$TARGET_COLOR image=${ACR_URI}:${IMAGE_TAG}"
 
 cd "$DOCKER_DIR"
 
