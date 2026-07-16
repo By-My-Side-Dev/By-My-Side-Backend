@@ -1,0 +1,94 @@
+name: Build and deploy to Azure VM
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  ACR_NAME: ${{ secrets.ACR_NAME }}
+  ACR_URI: ${{ secrets.ACR_URI }}
+  IMAGE_TAG: ${{ github.sha }}
+  APP_DIR: /home/azureuser/gyeote-project
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Verify application build
+        run: |
+          chmod +x gradlew
+          ./gradlew bootJar --no-daemon
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name "$ACR_NAME"
+
+      - name: Build and push image
+        run: |
+          docker build \
+            --tag "$ACR_URI:$IMAGE_TAG" \
+            --tag "$ACR_URI:latest" \
+            .
+          docker push "$ACR_URI:$IMAGE_TAG"
+          docker push "$ACR_URI:latest"
+
+      - name: Get ACR token for Azure VM
+        id: acr-token
+        run: |
+          token="$(az acr login --name "$ACR_NAME" --expose-token --output tsv --query accessToken)"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Copy deployment files to Azure VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AZURE_HOST }}
+          username: azureuser
+          key: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
+          source: "docker/docker-compose.blue.yml,docker/docker-compose.green.yml,script/deploy.sh"
+          target: ${{ env.APP_DIR }}
+
+      - name: Deploy on Azure VM
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          ACR_URI: ${{ env.ACR_URI }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          ACR_TOKEN: ${{ steps.acr-token.outputs.token }}
+        with:
+          host: ${{ secrets.AZURE_HOST }}
+          username: azureuser
+          key: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
+          envs: ACR_URI,IMAGE_TAG,ACR_TOKEN
+          script: |
+            set -e
+            registry="${ACR_URI%%/*}"
+            echo "$ACR_TOKEN" | docker login --username 00000000-0000-0000-0000-000000000000 --password-stdin "$registry"
+            chmod +x /home/azureuser/gyeote-project/script/deploy.sh
+            /home/azureuser/gyeote-project/script/deploy.sh
