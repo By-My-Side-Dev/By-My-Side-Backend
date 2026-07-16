@@ -8,20 +8,35 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: production-deploy
   cancel-in-progress: false
 
 env:
-  AWS_REGION: ap-southeast-2
-  ECR_URI: ${{ secrets.ECR_URI }}
+  ACR_NAME: ${{ secrets.ACR_NAME }}
+  ACR_URI: ${{ secrets.ACR_URI }}
   IMAGE_TAG: ${{ github.sha }}
-  APP_DIR: /home/azureuser/gyeote-project
+  APP_DIR: /home/azureuser/app
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: gyeote
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
       - name: Checkout
@@ -39,29 +54,29 @@ jobs:
           chmod +x gradlew
           ./gradlew bootJar --no-daemon
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Log in to Azure
+        uses: azure/login@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Log in to Azure Container Registry
+        run: az acr login --name "$ACR_NAME"
 
       - name: Build and push image
         run: |
           docker build \
-            --tag "$ECR_URI:$IMAGE_TAG" \
-            --tag "$ECR_URI:latest" \
+            --tag "$ACR_URI:$IMAGE_TAG" \
+            --tag "$ACR_URI:latest" \
             .
-          docker push "$ECR_URI:$IMAGE_TAG"
-          docker push "$ECR_URI:latest"
+          docker push "$ACR_URI:$IMAGE_TAG"
+          docker push "$ACR_URI:latest"
 
-      - name: Get ECR token for Azure VM
-        id: ecr-token
+      - name: Get ACR token for Azure VM
+        id: acr-token
         run: |
-          token="$(aws ecr get-login-password --region "$AWS_REGION")"
+          token="$(az acr login --name "$ACR_NAME" --expose-token --output tsv --query accessToken)"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
 
@@ -77,17 +92,18 @@ jobs:
       - name: Deploy on Azure VM
         uses: appleboy/ssh-action@v1.0.3
         env:
-          ECR_URI: ${{ env.ECR_URI }}
+          ACR_URI: ${{ env.ACR_URI }}
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
-          ECR_TOKEN: ${{ steps.ecr-token.outputs.token }}
+          ACR_TOKEN: ${{ steps.acr-token.outputs.token }}
         with:
           host: ${{ secrets.AZURE_HOST }}
           username: azureuser
           key: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
-          envs: ECR_URI,IMAGE_TAG,ECR_TOKEN
+          envs: ACR_URI,IMAGE_TAG,ACR_TOKEN
           script: |
             set -e
-            registry="${ECR_URI%%/*}"
-            echo "$ECR_TOKEN" | docker login --username AWS --password-stdin "$registry"
-            chmod +x /home/azureuser/gyeote-project/script/deploy.sh
-            /home/azureuser/gyeote-project/script/deploy.sh
+            registry="${ACR_URI%%/*}"
+            deploy_script="/home/azureuser/app/script/deploy.sh"
+            echo "$ACR_TOKEN" | docker login --username 00000000-0000-0000-0000-000000000000 --password-stdin "$registry"
+            chmod +x "$deploy_script"
+            "$deploy_script"
