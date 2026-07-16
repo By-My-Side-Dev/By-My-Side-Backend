@@ -59,5 +59,8 @@ sudo systemctl reload nginx
 echo "[deploy] stopping old $CURRENT_COLOR"
 docker compose -f "docker-compose.$CURRENT_COLOR.yml" down
 
+echo "[deploy] pruning unused images"
+docker image prune -a -f
+
 echo "$TARGET_COLOR" > "$ACTIVE_COLOR_FILE"
 echo "[deploy] done — live color is now $TARGET_COLOR"
