@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 실행 위치: Azure /home/azureuser/gyeote-project
+# 실행 위치: Azure /home/azureuser/app
 # 필요 환경변수: ACR_URI, IMAGE_TAG (GitHub Actions가 SSH로 전달)
 
-APP_DIR="/home/azureuser/gyeote-project"
+APP_DIR="/home/azureuser/app"
 DOCKER_DIR="$APP_DIR/docker"
 ACTIVE_COLOR_FILE="$APP_DIR/active_color"
 NGINX_BLUE_GREEN_DIR="/etc/nginx/blue-green"
@@ -58,6 +58,9 @@ sudo systemctl reload nginx
 
 echo "[deploy] stopping old $CURRENT_COLOR"
 docker compose -f "docker-compose.$CURRENT_COLOR.yml" down
+
+echo "[deploy] pruning unused images"
+docker image prune -a -f
 
 echo "$TARGET_COLOR" > "$ACTIVE_COLOR_FILE"
 echo "[deploy] done — live color is now $TARGET_COLOR"

@@ -6,7 +6,9 @@ services:
     container_name: gyeote-api-blue
     restart: unless-stopped
     env_file:
-      - /home/azureuser/gyeote-project/.env
+      - /home/azureuser/app/.env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
     ports:
       - "8080:8080"
     networks:
