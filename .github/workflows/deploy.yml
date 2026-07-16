@@ -18,7 +18,6 @@ env:
   ACR_NAME: ${{ secrets.ACR_NAME }}
   ACR_URI: ${{ secrets.ACR_URI }}
   IMAGE_TAG: ${{ github.sha }}
-  APP_DIR: /home/azureuser/gyeote-project
 
 jobs:
   build-and-deploy:
@@ -90,5 +89,3 @@ jobs:
             set -e
             registry="${ACR_URI%%/*}"
             echo "$ACR_TOKEN" | docker login --username 00000000-0000-0000-0000-000000000000 --password-stdin "$registry"
-            chmod +x /home/azureuser/gyeote-project/script/deploy.sh
-            /home/azureuser/gyeote-project/script/deploy.sh
