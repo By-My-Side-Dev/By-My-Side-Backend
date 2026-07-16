@@ -9,8 +9,8 @@ DOCKER_DIR="$APP_DIR/docker"
 ACTIVE_COLOR_FILE="$APP_DIR/active_color"
 NGINX_BLUE_GREEN_DIR="/etc/nginx/blue-green"
 NGINX_ACTIVE_LINK="$NGINX_BLUE_GREEN_DIR/active_upstream.conf"
-HEALTH_RETRY=30
-HEALTH_INTERVAL=2
+HEALTH_RETRY=45
+HEALTH_INTERVAL=3
 
 : "${ACR_URI:?ACR_URI 환경변수가 필요합니다}"
 : "${IMAGE_TAG:?IMAGE_TAG 환경변수가 필요합니다}"
