@@ -18,6 +18,7 @@ env:
   ACR_NAME: ${{ secrets.ACR_NAME }}
   ACR_URI: ${{ secrets.ACR_URI }}
   IMAGE_TAG: ${{ github.sha }}
+  APP_DIR: /home/azureuser/app
 
 jobs:
   build-and-deploy:
