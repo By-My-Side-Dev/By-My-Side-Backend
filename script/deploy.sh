@@ -38,7 +38,7 @@ docker compose -f "docker-compose.$TARGET_COLOR.yml" up -d
 echo "[deploy] health check on port $TARGET_PORT"
 healthy=false
 for i in $(seq 1 "$HEALTH_RETRY"); do
-    if curl -sf "http://localhost:${TARGET_PORT}/actuator/health" | grep -q '"status":"UP"'; then
+    if curl -sf "http://localhost:${TARGET_PORT}/health" | grep -q '"status":"UP"'; then
         healthy=true
         break
     fi
