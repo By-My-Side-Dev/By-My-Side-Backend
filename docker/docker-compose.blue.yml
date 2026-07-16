@@ -1,0 +1,17 @@
+name: gyeote-blue
+
+services:
+  api:
+    image: ${ECR_URI}:${IMAGE_TAG}
+    container_name: gyeote-api-blue
+    restart: unless-stopped
+    env_file:
+      - /home/azureuser/gyeote-project/.env
+    ports:
+      - "8080:8080"
+    networks:
+      - infra_default
+
+networks:
+  infra_default:
+    external: true
