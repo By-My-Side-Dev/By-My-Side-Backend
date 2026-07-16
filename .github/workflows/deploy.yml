@@ -18,7 +18,7 @@ env:
   ACR_NAME: ${{ secrets.ACR_NAME }}
   ACR_URI: ${{ secrets.ACR_URI }}
   IMAGE_TAG: ${{ github.sha }}
-  APP_DIR: /home/azureuser/app
+  APP_DIR: /home/ubuntu/app
 
 jobs:
   build-and-deploy:
@@ -70,7 +70,7 @@ jobs:
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.AZURE_HOST }}
-          username: azureuser
+          username: ubuntu
           key: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
           source: "docker/docker-compose.blue.yml,docker/docker-compose.green.yml,script/deploy.sh"
           target: ${{ env.APP_DIR }}
@@ -83,13 +83,13 @@ jobs:
           ACR_TOKEN: ${{ steps.acr-token.outputs.token }}
         with:
           host: ${{ secrets.AZURE_HOST }}
-          username: azureuser
+          username: ubuntu
           key: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
           envs: ACR_URI,IMAGE_TAG,ACR_TOKEN
           script: |
             set -e
             registry="${ACR_URI%%/*}"
-            deploy_script="/home/azureuser/app/script/deploy.sh"
+            deploy_script="/home/ubuntu/app/script/deploy.sh"
             echo "$ACR_TOKEN" | docker login --username 00000000-0000-0000-0000-000000000000 --password-stdin "$registry"
             chmod +x "$deploy_script"
             "$deploy_script"
