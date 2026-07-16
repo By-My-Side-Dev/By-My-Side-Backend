@@ -35,3 +35,12 @@ social:
       client-ids: ${GOOGLE_OAUTH_CLIENT_IDS:}
     apple:
       client-ids: ${APPLE_OAUTH_CLIENT_IDS:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
