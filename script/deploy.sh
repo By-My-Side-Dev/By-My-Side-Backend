@@ -7,7 +7,7 @@ set -euo pipefail
 APP_DIR="/home/azureuser/app"
 DOCKER_DIR="$APP_DIR/docker"
 ACTIVE_COLOR_FILE="$APP_DIR/active_color"
-NGINX_BLUE_GREEN_DIR="/etc/nginx/blue-green"
+NGINX_BLUE_GREEN_DIR="/etc/nginx"
 NGINX_ACTIVE_LINK="$NGINX_BLUE_GREEN_DIR/active_upstream.conf"
 HEALTH_RETRY=45
 HEALTH_INTERVAL=3
