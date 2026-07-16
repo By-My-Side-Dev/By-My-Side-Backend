@@ -6,7 +6,7 @@ services:
     container_name: gyeote-api-blue
     restart: unless-stopped
     env_file:
-      - /home/ubuntu/app/.env
+      - /home/azureuser/app/.env
     ports:
       - "8080:8080"
     networks:

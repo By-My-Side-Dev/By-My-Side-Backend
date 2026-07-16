@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 실행 위치: Azure /home/ubuntu/app
+# 실행 위치: Azure /home/azureuser/app
 # 필요 환경변수: ACR_URI, IMAGE_TAG (GitHub Actions가 SSH로 전달)
 
-APP_DIR="/home/ubuntu/app"
+APP_DIR="/home/azureuser/app"
 DOCKER_DIR="$APP_DIR/docker"
 ACTIVE_COLOR_FILE="$APP_DIR/active_color"
 NGINX_BLUE_GREEN_DIR="/etc/nginx/blue-green"
