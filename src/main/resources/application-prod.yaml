@@ -16,9 +16,3 @@ spring:
     redis:
       host: ${REDIS_IP}
       port: ${REDIS_PORT}
-
-springdoc:
-  swagger-ui:
-    enabled: false
-  api-docs:
-    enabled: false
