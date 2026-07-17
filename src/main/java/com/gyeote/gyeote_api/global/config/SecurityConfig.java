@@ -38,7 +38,10 @@ public class SecurityConfig {
                                 "/api/v1/auth/reissue",
                                 "/api/v1/auth/social/login",
                                 "/api/v1/auth/social/signup/complete",
-                                "/health"
+                                "/health",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
