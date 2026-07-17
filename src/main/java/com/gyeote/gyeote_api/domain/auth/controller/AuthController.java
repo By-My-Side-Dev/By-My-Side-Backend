@@ -5,7 +5,6 @@ import com.gyeote.gyeote_api.domain.auth.service.AuthService;
 import com.gyeote.gyeote_api.domain.auth.service.SignupService;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -58,7 +57,6 @@ public class AuthController {
     )
     @PostMapping("/logout")
     public ApiResponse<Void> logout(
-            @Parameter(description = "유저 아이디", example = "1")
             @AuthenticationPrincipal Long userId
     ) {
         authService.logout(userId);
