@@ -57,7 +57,10 @@ public class PhoneCryptoService {
     }
 
     /**
+     * 유저의 전화번호를 암호화 하는 로직</br>
      * AES-GCM 랜덤 IV 암호화. 매번 다른 IV라 같은 번호도 암호값이 달라진다(복호화 전용, 매칭은 hash 사용).
+     * @param normalizedPhone 전화번호 문자열을 매개변수로 받는다(정규화된 전화번호, 01012345678)
+     * @return 전화번호를 암호화 한 값을 반환
      */
     public byte[] encrypt(String normalizedPhone) {
         try {
@@ -74,6 +77,14 @@ public class PhoneCryptoService {
         }
     }
 
+    /**
+     * 유저의 전화번호를 복호화 시키는 로직</br>
+     * 16바이트 → AES-128</br>
+     * 24바이트 → AES-192</br>
+     * 32바이트 → AES-256</br>
+     * @param encrypted 암호화된 전화번호를 매개변수로 받는다.
+     * @return 암호화된 전화번호를 복호화 해서 반환
+     */
     public String decrypt(byte[] encrypted) {
         try {
             ByteBuffer buffer = ByteBuffer.wrap(encrypted);
@@ -91,7 +102,9 @@ public class PhoneCryptoService {
     }
 
     /**
-     * 결정적 HMAC 블라인드 인덱스. 같은 번호는 항상 같은 값 → 조회·차단 매칭용. 64자 hex.
+     * 전화번호 조회·매칭용 블라인드 인덱스(HMAC-SHA256)를 생성하는 로직</br>
+     * @param normalizedPhone normalize()로 숫자만 남긴 전화번호
+     * @return 64자리 hex 문자열로 인코딩된 HMAC-SHA256 해시값
      */
     public String hash(String normalizedPhone) {
         try {
