@@ -1,6 +1,7 @@
 package com.gyeote.gyeote_api.global.security;
 
 import com.gyeote.gyeote_api.domain.auth.exception.AuthErrorCode;
+import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -43,8 +44,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = header.substring(BEARER_PREFIX.length());
             try {
                 Long userId = jwtTokenProvider.parseUserIdOrThrow(token, JwtTokenProvider.TYPE_ACCESS);
+                UserPrincipal userPrincipal = new UserPrincipal(userId);
                 SecurityContextHolder.getContext().setAuthentication(
-                        UsernamePasswordAuthenticationToken.authenticated(userId, null, List.of())
+                        UsernamePasswordAuthenticationToken.authenticated(userPrincipal, null, List.of())
                 );
             } catch (ExpiredJwtException e) {
                 request.setAttribute(AUTH_ERROR_ATTRIBUTE, AuthErrorCode.AUTH_EXPIRED_TOKEN);

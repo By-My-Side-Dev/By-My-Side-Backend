@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface UserPhoneRepository extends JpaRepository<UserPhone, Long> {
 
     Optional<UserPhone> findByActivePhoneHash(String activePhoneHash);
+
+    Optional<UserPhone> findByUser_IdAndDeletedAtIsNull(Long id);
 }

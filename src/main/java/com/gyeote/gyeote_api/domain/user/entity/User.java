@@ -110,4 +110,16 @@ public class User {
         this.provider = provider;
         this.providerUid = providerUid;
     }
+
+    public void updateRealtimeLocationEnable(boolean realtimeLocationEnabled) {
+        this.realtimeLocationEnabled = realtimeLocationEnabled;
+    }
+
+    public void updateUserName(String name) {
+        this.name = name;
+    }
+
+    public void softDeleteUser(LocalDateTime userSoftDeleteAt) {
+        this.deletedAt = userSoftDeleteAt;
+    }
 }
