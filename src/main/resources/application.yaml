@@ -5,7 +5,8 @@ spring:
     default: local
   jpa:
     hibernate:
-      ddl-auto: update
+      # 추후 운영에는 update로 변경
+      ddl-auto: create
     properties:
       hibernate:
         format_sql: true
