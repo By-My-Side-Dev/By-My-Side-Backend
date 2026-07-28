@@ -73,7 +73,12 @@ public class UserPhone {
         }
     }
 
-    public void release(LocalDateTime releasedAt) {
-        this.deletedAt = releasedAt;
+    public void updatePhoneNumber(byte[] phoneEncrypted, String phoneHash) {
+        this.phoneEncrypted = phoneEncrypted;
+        this.phoneHash = phoneHash;
+    }
+
+    public void softDeletePhoneNumber(LocalDateTime phoneNumberSoftDeleteAt) {
+        this.deletedAt = phoneNumberSoftDeleteAt;
     }
 }
