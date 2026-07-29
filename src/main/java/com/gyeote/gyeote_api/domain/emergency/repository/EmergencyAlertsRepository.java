@@ -6,5 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface EmergencyAlertsRepository extends JpaRepository<EmergencyAlerts, Long> {
-    Optional<EmergencyAlerts> findEmergencyAlertsById(Long id);
+    Optional<EmergencyAlerts> findByIdAndSenderId(Long alertId, Long userId);
+
+    boolean existsByIdAndSenderId(Long alertId, Long userId);
 }

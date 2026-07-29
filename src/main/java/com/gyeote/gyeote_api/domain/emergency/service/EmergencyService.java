@@ -2,7 +2,12 @@ package com.gyeote.gyeote_api.domain.emergency.service;
 
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyRequest;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyResponse;
+import com.gyeote.gyeote_api.domain.emergency.dto.RealtimeLocationUpdateRequest;
+import com.gyeote.gyeote_api.domain.emergency.dto.RealtimeLocationUpdateResponse;
+import com.gyeote.gyeote_api.domain.emergency.entity.AlertLocations;
 import com.gyeote.gyeote_api.domain.emergency.entity.EmergencyAlerts;
+import com.gyeote.gyeote_api.domain.emergency.geocoding.ReverseGeocodingService;
+import com.gyeote.gyeote_api.domain.emergency.repository.AlertLocationsRepository;
 import com.gyeote.gyeote_api.domain.emergency.repository.EmergencyAlertsRepository;
 import com.gyeote.gyeote_api.domain.user.entity.User;
 import com.gyeote.gyeote_api.domain.user.repository.UserRepository;
@@ -12,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 @Service
@@ -19,55 +26,109 @@ import java.time.LocalDateTime;
 @Transactional(readOnly = true)
 public class EmergencyService {
 
+    private static final int GPS_SCALE = 7;
+
     private final UserRepository userRepository;
     private final EmergencyAlertsRepository emergencyAlertsRepository;
+    private final AlertLocationsRepository alertLocationsRepository;
+    private final ReverseGeocodingService reverseGeocodingService;
 
     /**
-     * 도움 요청 생성
+     * 도움 요청 생성.
+     *
      * @param userId 유저 아이디
-     * @param request 위도, 경도, 주소를 받는다.
-     * @return 알림 아이디를 반환한다.
+     * @param request 위도와 경도
+     * @return 알림 아이디
      */
     @Transactional
     public EmergencyResponse createEmergency(Long userId, EmergencyRequest request) {
         User sender = userRepository.findUserById(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
 
-        // [응급 알림 생성] 최초 알림 생성
-        EmergencyAlerts emergencyAlerts = EmergencyAlerts.builder()
+        BigDecimal latitude = normalizeCoordinate(request.latitude());
+        BigDecimal longitude = normalizeCoordinate(request.longitude());
+        String address = reverseGeocodingService.findAddress(latitude, longitude)
+                .orElse(null);
+
+        EmergencyAlerts emergencyAlert = EmergencyAlerts.builder()
                 .sender(sender)
-                .latitude(request.latitude())
-                .longitude(request.longitude())
-                .address(request.address())
+                .latitude(latitude)
+                .longitude(longitude)
+                .address(address)
                 .isRealtime(sender.isRealtimeLocationEnabled())
                 .build();
 
-        emergencyAlertsRepository.save(emergencyAlerts);
+        emergencyAlertsRepository.save(emergencyAlert);
 
-        return EmergencyResponse.from(emergencyAlerts.getId());
+        if (emergencyAlert.isRealtime()) {
+            AlertLocations initialLocation = AlertLocations.builder()
+                    .emergencyAlert(emergencyAlert)
+                    .latitude(latitude)
+                    .longitude(longitude)
+                    .build();
+
+            alertLocationsRepository.save(initialLocation);
+        }
+
+        return EmergencyResponse.from(emergencyAlert.getId());
     }
 
     /**
-     * 도움 요청 종료
-     * @param userId 유저 아이디
-     * @param alertId 알림 id를 파라미터로 받는다.
+     * 실시간 위치가 활성화된 도움 요청의 위치 이력을 새 행으로 저장한다.
      */
     @Transactional
-    public void endEmergency(Long userId, Long alertId) {
-        EmergencyAlerts emergencyAlerts = emergencyAlertsRepository.findEmergencyAlertsById(alertId)
+    public RealtimeLocationUpdateResponse updateRealtimeLocation(
+            Long userId,
+            Long alertId,
+            RealtimeLocationUpdateRequest request
+    ) {
+        EmergencyAlerts emergencyAlert = emergencyAlertsRepository.findByIdAndSenderId(alertId, userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
 
-        // [검증] 현재 사용자가 같은 사용자 인지 검증
-        if (!emergencyAlerts.getSender().getId().equals(userId)) {
+        if (!emergencyAlert.isRealtime()) {
             throw new BusinessException(CommonErrorCode.COMMON_FORBIDDEN);
         }
 
-        // [검증] 다시 종료 버튼을 눌러서 종료 시간을 덮어쓰는지 검증
-        if (!(emergencyAlerts.getEndedAt() == null)) {
+        if (emergencyAlert.getEndedAt() != null) {
             throw new BusinessException(CommonErrorCode.COMMON_CONFLICT);
         }
 
-        emergencyAlerts.end(LocalDateTime.now());
+        BigDecimal latitude = normalizeCoordinate(request.latitude());
+        BigDecimal longitude = normalizeCoordinate(request.longitude());
+
+        AlertLocations locationHistory = AlertLocations.builder()
+                .emergencyAlert(emergencyAlert)
+                .latitude(latitude)
+                .longitude(longitude)
+                .build();
+
+        alertLocationsRepository.save(locationHistory);
+
+        return new RealtimeLocationUpdateResponse(alertId, latitude, longitude);
     }
 
+    /**
+     * 도움 요청 종료.
+     */
+    @Transactional
+    public void endEmergency(Long userId, Long alertId) {
+        EmergencyAlerts emergencyAlert = emergencyAlertsRepository.findByIdAndSenderId(alertId, userId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
+
+        if (!emergencyAlert.getSender().getId().equals(userId)) {
+            throw new BusinessException(CommonErrorCode.COMMON_FORBIDDEN);
+        }
+
+        if (emergencyAlert.isRealtime()) {
+            if (emergencyAlert.getEndedAt() != null) {
+                throw new BusinessException(CommonErrorCode.COMMON_CONFLICT);
+            }
+
+            emergencyAlert.end(LocalDateTime.now());
+        }
+    }
+
+    private BigDecimal normalizeCoordinate(BigDecimal coordinate) {
+        return coordinate.setScale(GPS_SCALE, RoundingMode.HALF_UP);
+    }
 }
