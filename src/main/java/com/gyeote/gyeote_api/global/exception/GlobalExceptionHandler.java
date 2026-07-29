@@ -5,6 +5,7 @@ import com.gyeote.gyeote_api.domain.auth.exception.SignupErrorCode;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
@@ -30,6 +31,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+        log.debug("BUSINESS_EXCEPTION: code={}", e.getErrorCode().getCode());
         return error(e.getErrorCode());
     }
 
@@ -44,6 +46,7 @@ public class GlobalExceptionHandler {
                 .orElse(null);
         ErrorCode errorCode = resolveErrorCode(codeName);
 
+        log.debug("VALIDATION_FAILED: code={}", errorCode.getCode());
         return error(errorCode);
     }
 
@@ -52,6 +55,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleUnreadableMessage(HttpMessageNotReadableException e) {
+        log.warn("INVALID_REQUEST_BODY: exception={}", e.getClass().getSimpleName());
         return error(CommonErrorCode.COMMON_INVALID_REQUEST);
     }
 
@@ -60,6 +64,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
     public ResponseEntity<ApiResponse<Void>> handleNotFound(Exception e) {
+        log.debug("RESOURCE_NOT_FOUND: exception={}", e.getClass().getSimpleName());
         return error(CommonErrorCode.COMMON_NOT_FOUND);
     }
 
@@ -68,6 +73,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodNotAllowed(HttpRequestMethodNotSupportedException e) {
+        log.warn("METHOD_NOT_ALLOWED: method={}", e.getMethod());
         return error(CommonErrorCode.COMMON_METHOD_NOT_ALLOWED);
     }
 
@@ -76,6 +82,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ApiResponse<Void>> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException e) {
+        log.warn("UNSUPPORTED_MEDIA_TYPE: contentType={}", e.getContentType());
         return error(CommonErrorCode.COMMON_UNSUPPORTED_MEDIA_TYPE);
     }
 
@@ -91,6 +98,7 @@ public class GlobalExceptionHandler {
             ConstraintViolationException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleInvalidRequestValue(Exception e) {
+        log.warn("INVALID_REQUEST_VALUE: exception={}", e.getClass().getSimpleName());
         return error(CommonErrorCode.COMMON_INVALID_REQUEST);
     }
 
@@ -110,6 +118,15 @@ public class GlobalExceptionHandler {
         } catch (IllegalArgumentException ignored) {
         }
         return CommonErrorCode.COMMON_VALIDATION_FAILED;
+    }
+
+    /**
+     * 같은 엔티티를 동시에 수정해 버전이 충돌한 경우 처리.
+     */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(OptimisticLockingFailureException e) {
+        log.warn("OPTIMISTIC_LOCK_CONFLICT: exception={}", e.getClass().getSimpleName());
+        return error(CommonErrorCode.COMMON_OPTIMISTIC_LOCK_CONFLICT);
     }
 
     /**
