@@ -29,6 +29,11 @@ social:
     apple:
       client-ids: ${APPLE_OAUTH_CLIENT_IDS}
 
+reverse-geocoding:
+  kakao:
+    base-url: https://dapi.kakao.com
+    rest-api-key: ${KAKAO_REST_API_KEY}
+
 management:
   endpoints:
     web:
