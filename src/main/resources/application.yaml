@@ -5,7 +5,8 @@ spring:
     default: local
   jpa:
     hibernate:
-      ddl-auto: update
+      # 추후 운영에는 update로 변경
+      ddl-auto: create
     properties:
       hibernate:
         format_sql: true
@@ -27,6 +28,11 @@ social:
       client-ids: ${GOOGLE_OAUTH_CLIENT_IDS}
     apple:
       client-ids: ${APPLE_OAUTH_CLIENT_IDS}
+
+reverse-geocoding:
+  kakao:
+    base-url: https://dapi.kakao.com
+    rest-api-key: ${KAKAO_REST_API_KEY}
 
 management:
   endpoints:
