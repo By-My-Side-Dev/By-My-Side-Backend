@@ -1,6 +1,5 @@
-package com.gyeote.gyeote_api.domain.alert.entity;
+package com.gyeote.gyeote_api.domain.emergency.entity;
 
-import com.gyeote.gyeote_api.domain.emergency.entity.EmergencyAlerts;
 import com.gyeote.gyeote_api.domain.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

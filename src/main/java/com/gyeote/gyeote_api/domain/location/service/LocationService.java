@@ -1,12 +1,12 @@
 package com.gyeote.gyeote_api.domain.location.service;
 
-import com.gyeote.gyeote_api.domain.alert.entity.AlertRecipients;
-import com.gyeote.gyeote_api.domain.alert.repository.AlertRecipientsRepository;
 import com.gyeote.gyeote_api.domain.contact.entity.Contact;
 import com.gyeote.gyeote_api.domain.contact.repository.ContactRepository;
 import com.gyeote.gyeote_api.domain.emergency.entity.AlertLocations;
+import com.gyeote.gyeote_api.domain.emergency.entity.AlertRecipients;
 import com.gyeote.gyeote_api.domain.emergency.entity.EmergencyAlerts;
 import com.gyeote.gyeote_api.domain.emergency.repository.AlertLocationsRepository;
+import com.gyeote.gyeote_api.domain.emergency.repository.AlertRecipientsRepository;
 import com.gyeote.gyeote_api.domain.location.dto.AlertLocationResponse;
 import com.gyeote.gyeote_api.domain.location.dto.AlertMapMarkerResponse;
 import com.gyeote.gyeote_api.domain.location.exception.LocationErrorCode;

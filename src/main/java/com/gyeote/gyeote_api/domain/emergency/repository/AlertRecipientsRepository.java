@@ -1,6 +1,6 @@
-package com.gyeote.gyeote_api.domain.alert.repository;
+package com.gyeote.gyeote_api.domain.emergency.repository;
 
-import com.gyeote.gyeote_api.domain.alert.entity.AlertRecipients;
+import com.gyeote.gyeote_api.domain.emergency.entity.AlertRecipients;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
