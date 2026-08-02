@@ -34,7 +34,6 @@ public interface AlertLocationsRepository extends JpaRepository<AlertLocations, 
             order by location.id asc
             """)
     List<AlertLocations> findLatestByAlertIds(@Param("alertIds") Collection<Long> alertIds);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             delete from AlertLocations location
