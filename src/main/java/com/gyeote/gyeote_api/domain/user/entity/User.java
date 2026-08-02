@@ -58,6 +58,18 @@ public class User {
     @Column(name = "receive_contacts_only", nullable = false)
     private boolean receiveContactsOnly;
 
+    @Column(name = "agree_location", nullable = false)
+    private boolean agreeLocation;
+
+    @Column(name = "agree_privacy", nullable = false)
+    private boolean agreePrivacy;
+
+    @Column(name = "agree_terms", nullable = false)
+    private boolean agreeTerms;
+
+    @Column(name = "agree_third_party", nullable = false)
+    private boolean agreeThirdParty;
+
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
@@ -73,13 +85,19 @@ public class User {
 
     @Builder
     private User(String name, String loginId, String passwordHash,
-                 String provider, String providerUid, String profileImageUrl) {
+                 String provider, String providerUid, String profileImageUrl,
+                 boolean agreeLocation, boolean agreePrivacy,
+                 boolean agreeTerms, boolean agreeThirdParty) {
         this.name = name;
         this.loginId = loginId;
         this.passwordHash = passwordHash;
         this.provider = provider;
         this.providerUid = providerUid;
         this.profileImageUrl = profileImageUrl;
+        this.agreeLocation = agreeLocation;
+        this.agreePrivacy = agreePrivacy;
+        this.agreeTerms = agreeTerms;
+        this.agreeThirdParty = agreeThirdParty;
     }
 
     @PrePersist

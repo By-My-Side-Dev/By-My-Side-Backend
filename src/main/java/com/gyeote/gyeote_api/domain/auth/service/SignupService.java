@@ -55,6 +55,10 @@ public class SignupService {
                 .name(request.name())
                 .loginId(request.loginId())
                 .passwordHash(passwordEncoder.encode(request.password()))
+                .agreeLocation(request.agreeLocation())
+                .agreePrivacy(request.agreePrivacy())
+                .agreeTerms(request.agreeTerms())
+                .agreeThirdParty(request.agreeThirdParty())
                 .build();
         user.activate();
         userRepository.save(user);
@@ -116,6 +120,10 @@ public class SignupService {
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .provider(provider)
                 .providerUid(providerUid)
+                .agreeLocation(request.agreeLocation())
+                .agreePrivacy(request.agreePrivacy())
+                .agreeTerms(request.agreeTerms())
+                .agreeThirdParty(request.agreeThirdParty())
                 .build();
         user.activate();
         userRepository.save(user);
