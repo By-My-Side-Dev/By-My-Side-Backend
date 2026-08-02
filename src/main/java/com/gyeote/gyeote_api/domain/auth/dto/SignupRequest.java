@@ -22,6 +22,18 @@ public record SignupRequest(
 
         @Schema(description = "휴대폰 번호 (- 없이 숫자만)", example = "01012345678")
         @NotBlank(message = "SIGNUP_REQUIRED_PHONE")
-        String phone
+        String phone,
+
+        @Schema(description = "위치정보 수집·이용 동의", example = "true")
+        boolean agreeLocation,
+
+        @Schema(description = "개인정보 수집 및 이용 동의", example = "true")
+        boolean agreePrivacy,
+
+        @Schema(description = "서비스 이용약관 동의", example = "true")
+        boolean agreeTerms,
+
+        @Schema(description = "개인정보 제3자 제공 동의", example = "true")
+        boolean agreeThirdParty
 ) {
 }
