@@ -14,6 +14,7 @@ import com.gyeote.gyeote_api.domain.user.repository.UserRepository;
 import com.gyeote.gyeote_api.global.exception.BusinessException;
 import com.gyeote.gyeote_api.global.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,9 @@ public class EmergencyService {
     private final EmergencyAlertsRepository emergencyAlertsRepository;
     private final AlertLocationsRepository alertLocationsRepository;
     private final ReverseGeocodingService reverseGeocodingService;
+
+    @Value("${emergency.location-update-interval-seconds:15}")
+    private long locationUpdateIntervalSeconds;
 
     /**
      * 도움 요청 생성.
@@ -82,7 +86,7 @@ public class EmergencyService {
             Long alertId,
             RealtimeLocationUpdateRequest request
     ) {
-        EmergencyAlerts emergencyAlert = emergencyAlertsRepository.findByIdAndSenderId(alertId, userId)
+        EmergencyAlerts emergencyAlert = emergencyAlertsRepository.findByIdAndSenderIdForUpdate(alertId, userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
 
         if (!emergencyAlert.isRealtime()) {
@@ -92,6 +96,15 @@ public class EmergencyService {
         if (emergencyAlert.getEndedAt() != null) {
             throw new BusinessException(CommonErrorCode.COMMON_CONFLICT);
         }
+
+        LocalDateTime now = LocalDateTime.now();
+        alertLocationsRepository.findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(alertId)
+                .filter(latest -> latest.getUpdatedAt()
+                        .plusSeconds(locationUpdateIntervalSeconds)
+                        .isAfter(now))
+                .ifPresent(latest -> {
+                    throw new BusinessException(CommonErrorCode.COMMON_TOO_MANY_REQUESTS);
+                });
 
         BigDecimal latitude = normalizeCoordinate(request.latitude());
         BigDecimal longitude = normalizeCoordinate(request.longitude());

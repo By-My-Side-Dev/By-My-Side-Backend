@@ -34,6 +34,10 @@ reverse-geocoding:
     base-url: https://dapi.kakao.com
     rest-api-key: ${KAKAO_REST_API_KEY}
 
+emergency:
+  # 실시간 위치 WebSocket 갱신의 최소 간격. 환경변수로 운영 중 조정할 수 있다.
+  location-update-interval-seconds: ${EMERGENCY_LOCATION_UPDATE_INTERVAL_SECONDS:15}
+
 management:
   endpoints:
     web:
