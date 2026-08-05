@@ -32,7 +32,6 @@ public class SignupService {
 
     private static final int MIN_PHONE_DIGITS = 10;
     private static final int MAX_PHONE_DIGITS = 15;
-    private static final int RECLAIM_DORMANT_DAYS = 60;
 
     private final UserRepository userRepository;
     private final UserPhoneRepository userPhoneRepository;
@@ -49,7 +48,7 @@ public class SignupService {
             throw new BusinessException(SignupErrorCode.SIGNUP_DUPLICATED_LOGIN_ID);
         }
 
-        String phoneHash = validateAvailablePhoneAndGetHash(phone);
+        String phoneHash = phoneCryptoService.hash(phone);
 
         User user = User.builder()
                 .name(request.name())
@@ -112,7 +111,7 @@ public class SignupService {
         }
 
         String phone = normalizeAndValidatePhone(request.phone());
-        String phoneHash = validateAvailablePhoneAndGetHash(phone);
+        String phoneHash = phoneCryptoService.hash(phone);
 
         User user = User.builder()
                 .name(request.name())
@@ -138,13 +137,6 @@ public class SignupService {
         return normalizedPhone;
     }
 
-    private String validateAvailablePhoneAndGetHash(String phone) {
-        String phoneHash = phoneCryptoService.hash(phone);
-        userPhoneRepository.findByActivePhoneHash(phoneHash)
-                .ifPresent(this::rejectOccupiedPhone);
-        return phoneHash;
-    }
-
     private void saveUserPhone(User user, String phone, String phoneHash) {
         userPhoneRepository.save(UserPhone.builder()
                 .user(user)
@@ -159,20 +151,4 @@ public class SignupService {
         }
     }
 
-    /**
-     * 이미 활성 상태로 점유된 번호 처리.
-     * 기존 계정이 60일 이상 무로그인(휴면)이면 reclaim 게이트로 안내하고, 활동 중이면 중복 가입으로 거부한다.
-     * 실제 점유 해제(reclaim) 절차는 별도 이슈에서 구현한다.
-     */
-    private void rejectOccupiedPhone(UserPhone activePhone) {
-        User owner = activePhone.getUser();
-        LocalDateTime lastActivity = owner.getLastLoginAt() != null
-                ? owner.getLastLoginAt()
-                : owner.getCreatedAt();
-
-        if (lastActivity.isBefore(LocalDateTime.now().minusDays(RECLAIM_DORMANT_DAYS))) {
-            throw new BusinessException(SignupErrorCode.SIGNUP_RECLAIM_REQUIRED);
-        }
-        throw new BusinessException(SignupErrorCode.SIGNUP_DUPLICATED_PHONE);
-    }
 }

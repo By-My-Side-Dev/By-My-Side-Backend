@@ -48,10 +48,6 @@ public class UserPhone {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    @Column(name = "active_phone_hash", insertable = false, updatable = false,
-            columnDefinition = "char(64) GENERATED ALWAYS AS (IF(deleted_at IS NULL, phone_hash, NULL)) STORED UNIQUE")
-    private String activePhoneHash;
-
     @Column(name = "active_user_id", insertable = false, updatable = false,
             columnDefinition = "bigint GENERATED ALWAYS AS (IF(deleted_at IS NULL, user_id, NULL)) STORED UNIQUE")
     private Long activeUserId;
