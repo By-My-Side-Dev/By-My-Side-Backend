@@ -92,8 +92,6 @@ public class UserService {
             validatePhone(normalizePhoneNumber);
 
             String newPhoneHash = phoneCryptoService.hash(normalizePhoneNumber);
-            userPhoneRepository.findByActivePhoneHash(newPhoneHash).ifPresent(this::rejectOccupiedPhone);
-
             byte[] encrypt = phoneCryptoService.encrypt(normalizePhoneNumber);
             userPhone.updatePhoneNumber(encrypt, newPhoneHash);
         }
@@ -125,10 +123,6 @@ public class UserService {
         if (normalizedPhone.length() < MIN_PHONE_DIGITS || MAX_PHONE_DIGITS < normalizedPhone.length()) {
             throw new BusinessException(SignupErrorCode.SIGNUP_INVALID_PHONE);
         }
-    }
-
-    private void rejectOccupiedPhone(UserPhone activePhone) {
-        throw new BusinessException(SignupErrorCode.SIGNUP_DUPLICATED_PHONE);
     }
 
 }
