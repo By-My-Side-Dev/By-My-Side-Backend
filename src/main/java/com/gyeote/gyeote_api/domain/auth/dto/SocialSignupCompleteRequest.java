@@ -2,6 +2,8 @@ package com.gyeote.gyeote_api.domain.auth.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 public record SocialSignupCompleteRequest(
         @Schema(description = "소셜 로그인 시 발급받은 온보딩 토큰", example = "eyJhbGciOiJIUzI1NiIs...")
@@ -16,8 +18,12 @@ public record SocialSignupCompleteRequest(
         @NotBlank
         String loginId,
 
-        @Schema(description = "비밀번호", example = "password1234", format = "password")
-        @NotBlank
+        @Schema(description = "비밀번호 (8~64자, 영문자와 숫자 포함)", example = "password1234", format = "password")
+        @NotBlank(message = "SIGNUP_REQUIRED_PASSWORD")
+        @Size(min = 8, message = "SIGNUP_PASSWORD_TOO_SHORT")
+        @Size(max = 64, message = "SIGNUP_PASSWORD_TOO_LONG")
+        @Pattern(regexp = ".*[a-zA-Z].*", message = "SIGNUP_PASSWORD_LETTER_REQUIRED")
+        @Pattern(regexp = ".*[0-9].*", message = "SIGNUP_PASSWORD_NUMBER_REQUIRED")
         String password,
 
         @Schema(description = "휴대폰 번호 (- 없이 숫자만)", example = "01012345678")
