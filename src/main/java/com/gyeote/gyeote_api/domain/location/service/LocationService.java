@@ -76,7 +76,6 @@ public class LocationService {
      */
     public AlertLocationResponse getReceivedAlertLocation(Long userId, Long alertId) {
         AlertRecipient recipient = requireReceivedAlert(userId, alertId);
-
         EmergencyAlerts alert = recipient.getEmergencyAlert();
         User sender = alert.getSender();
         boolean realtime = isRealtimeTracking(recipient, findContact(userId, sender.getId()).orElse(null));
