@@ -14,6 +14,15 @@ import java.util.Optional;
 public interface AlertLocationsRepository extends JpaRepository<AlertLocations, Long> {
 
     /**
+     * 호출 시작부터 현재까지 저장된 이동 경로를 시간순으로 조회한다.
+     * 기록 시각이 같으면 위치 ID가 작은 행을 먼저 반환한다.
+     *
+     * @param alertId 긴급 알림 ID
+     * @return {@code updatedAt ASC, id ASC}로 정렬된 위치 이력
+     */
+    List<AlertLocations> findAllByEmergencyAlert_IdOrderByUpdatedAtAscIdAsc(Long alertId);
+
+    /**
      * 호출 1건의 가장 최근 위치를 조회한다.
      */
     Optional<AlertLocations> findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(Long alertId);
