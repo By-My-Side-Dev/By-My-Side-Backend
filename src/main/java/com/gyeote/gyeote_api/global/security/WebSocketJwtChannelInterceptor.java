@@ -1,6 +1,6 @@
 package com.gyeote.gyeote_api.global.security;
 
-import com.gyeote.gyeote_api.domain.emergency.repository.EmergencyAlertsRepository;
+import com.gyeote.gyeote_api.domain.alert.repository.AlertRecipientRepository;
 import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -16,6 +16,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,11 +26,13 @@ public class WebSocketJwtChannelInterceptor implements ChannelInterceptor {
 
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String EMERGENCY_TOPIC_PREFIX = "/topic/emergency-alerts/";
+    private static final String TOPIC_PREFIX = "/topic/";
+    private static final String QUEUE_PREFIX = "/queue/";
     private static final Pattern EMERGENCY_LOCATION_TOPIC =
             Pattern.compile("^/topic/emergency-alerts/(\\d+)/location$");
 
     private final JwtTokenProvider jwtTokenProvider;
-    private final EmergencyAlertsRepository emergencyAlertsRepository;
+    private final AlertRecipientRepository alertRecipientRepository;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -46,6 +49,10 @@ public class WebSocketJwtChannelInterceptor implements ChannelInterceptor {
 
         if (accessor.getCommand() == StompCommand.SUBSCRIBE) {
             authorizeSubscription(accessor);
+        }
+
+        if (accessor.getCommand() == StompCommand.SEND) {
+            rejectDirectBrokerSend(accessor);
         }
 
         return message;
@@ -85,8 +92,20 @@ public class WebSocketJwtChannelInterceptor implements ChannelInterceptor {
         }
 
         Long alertId = Long.parseLong(matcher.group(1));
-        if (!emergencyAlertsRepository.existsByIdAndSenderId(alertId, principal.id())) {
+        if (!alertRecipientRepository.existsActiveRealtimeSubscription(
+                alertId,
+                principal.id(),
+                LocalDateTime.now()
+        )) {
             throw new AccessDeniedException("Emergency location subscription is not allowed.");
+        }
+    }
+
+    private void rejectDirectBrokerSend(StompHeaderAccessor accessor) {
+        String destination = accessor.getDestination();
+        if (destination != null
+                && (destination.startsWith(TOPIC_PREFIX) || destination.startsWith(QUEUE_PREFIX))) {
+            throw new AccessDeniedException("Direct broker destination send is not allowed.");
         }
     }
 }

@@ -11,3 +11,6 @@ spring:
     redis:
       host: ${REDIS_IP}
       port: ${REDIS_PORT}
+
+websocket:
+  allowed-origin-patterns: http://localhost:*
