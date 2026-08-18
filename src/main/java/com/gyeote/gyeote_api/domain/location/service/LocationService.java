@@ -3,10 +3,12 @@ package com.gyeote.gyeote_api.domain.location.service;
 import com.gyeote.gyeote_api.domain.contact.entity.Contact;
 import com.gyeote.gyeote_api.domain.contact.repository.ContactRepository;
 import com.gyeote.gyeote_api.domain.emergency.entity.AlertLocations;
+
 import com.gyeote.gyeote_api.domain.alert.entity.AlertRecipient;
 import com.gyeote.gyeote_api.domain.alert.repository.AlertRecipientRepository;
 import com.gyeote.gyeote_api.domain.emergency.entity.EmergencyAlerts;
 import com.gyeote.gyeote_api.domain.emergency.repository.AlertLocationsRepository;
+
 import com.gyeote.gyeote_api.domain.location.dto.AlertLocationResponse;
 import com.gyeote.gyeote_api.domain.location.dto.AlertMapMarkerResponse;
 import com.gyeote.gyeote_api.domain.location.exception.LocationErrorCode;
@@ -41,8 +43,10 @@ public class LocationService {
      * 내가 받은 유효한 긴급 알림들의 위치를 지도 마커 목록으로 조회한다.
      */
     public List<AlertMapMarkerResponse> getReceivedAlertMapMarkers(Long userId) {
+
         List<AlertRecipient> recipients =
                 alertRecipientRepository.findActiveByReceiverId(userId, LocalDateTime.now());
+
         if (recipients.isEmpty()) {
             return List.of();
         }
@@ -59,6 +63,7 @@ public class LocationService {
      * 특정 수신 알림의 발신자 위치를 조회한다.
      */
     public AlertLocationResponse getReceivedAlertLocation(Long userId, Long alertRecipientId) {
+      
         AlertRecipient recipient = alertRecipientRepository.findWithAlertById(alertRecipientId)
                 .orElseThrow(() -> new BusinessException(LocationErrorCode.LOCATION_NOT_FOUND));
 
