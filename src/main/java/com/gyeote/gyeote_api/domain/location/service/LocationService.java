@@ -3,10 +3,10 @@ package com.gyeote.gyeote_api.domain.location.service;
 import com.gyeote.gyeote_api.domain.contact.entity.Contact;
 import com.gyeote.gyeote_api.domain.contact.repository.ContactRepository;
 import com.gyeote.gyeote_api.domain.emergency.entity.AlertLocations;
-import com.gyeote.gyeote_api.domain.emergency.entity.AlertRecipients;
+import com.gyeote.gyeote_api.domain.alert.entity.AlertRecipient;
+import com.gyeote.gyeote_api.domain.alert.repository.AlertRecipientRepository;
 import com.gyeote.gyeote_api.domain.emergency.entity.EmergencyAlerts;
 import com.gyeote.gyeote_api.domain.emergency.repository.AlertLocationsRepository;
-import com.gyeote.gyeote_api.domain.emergency.repository.AlertRecipientsRepository;
 import com.gyeote.gyeote_api.domain.location.dto.AlertLocationResponse;
 import com.gyeote.gyeote_api.domain.location.dto.AlertMapMarkerResponse;
 import com.gyeote.gyeote_api.domain.location.exception.LocationErrorCode;
@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class LocationService {
 
-    private final AlertRecipientsRepository alertRecipientsRepository;
+    private final AlertRecipientRepository alertRecipientRepository;
     private final AlertLocationsRepository alertLocationsRepository;
     private final ContactRepository contactRepository;
 
@@ -41,8 +41,8 @@ public class LocationService {
      * 내가 받은 유효한 긴급 알림들의 위치를 지도 마커 목록으로 조회한다.
      */
     public List<AlertMapMarkerResponse> getReceivedAlertMapMarkers(Long userId) {
-        List<AlertRecipients> recipients =
-                alertRecipientsRepository.findActiveByReceiverId(userId, LocalDateTime.now());
+        List<AlertRecipient> recipients =
+                alertRecipientRepository.findActiveByReceiverId(userId, LocalDateTime.now());
         if (recipients.isEmpty()) {
             return List.of();
         }
@@ -59,7 +59,7 @@ public class LocationService {
      * 특정 수신 알림의 발신자 위치를 조회한다.
      */
     public AlertLocationResponse getReceivedAlertLocation(Long userId, Long alertRecipientId) {
-        AlertRecipients recipient = alertRecipientsRepository.findWithAlertById(alertRecipientId)
+        AlertRecipient recipient = alertRecipientRepository.findWithAlertById(alertRecipientId)
                 .orElseThrow(() -> new BusinessException(LocationErrorCode.LOCATION_NOT_FOUND));
 
         if (!recipient.getReceiver().getId().equals(userId)) {
@@ -93,7 +93,7 @@ public class LocationService {
     }
 
     private AlertMapMarkerResponse toMarkerResponse(
-            AlertRecipients recipient,
+            AlertRecipient recipient,
             Map<Long, AlertLocations> latestLocations,
             Map<Long, Contact> contacts
     ) {
@@ -123,12 +123,13 @@ public class LocationService {
      * 호출이 실시간 모드로 생성됐고, 발신자가 공유를 끝내지 않았고,
      * 수신자도 수신을 종료하지 않았으며, 해당 지인의 실시간 수신 설정이 켜져 있어야 한다.
      */
-    private boolean isRealtimeTracking(AlertRecipients recipient, Contact contact) {
+    private boolean isRealtimeTracking(AlertRecipient recipient, Contact contact) {
         EmergencyAlerts alert = recipient.getEmergencyAlert();
         return alert.isRealtime()
                 && alert.getEndedAt() == null
                 && !recipient.isRealtimeStopped()
-                && (contact == null || contact.isReceiveRealtime());
+                && contact != null
+                && contact.isReceiveRealtime();
     }
 
     private BigDecimal latitudeOf(EmergencyAlerts alert, AlertLocations latestLocation) {
@@ -143,7 +144,7 @@ public class LocationService {
         return latestLocation == null ? alert.getCreatedAt() : latestLocation.getUpdatedAt();
     }
 
-    private Map<Long, AlertLocations> findLatestLocations(List<AlertRecipients> recipients) {
+    private Map<Long, AlertLocations> findLatestLocations(List<AlertRecipient> recipients) {
         List<Long> alertIds = recipients.stream()
                 .map(recipient -> recipient.getEmergencyAlert().getId())
                 .distinct()
@@ -158,7 +159,7 @@ public class LocationService {
                 ));
     }
 
-    private Map<Long, Contact> findContacts(Long userId, List<AlertRecipients> recipients) {
+    private Map<Long, Contact> findContacts(Long userId, List<AlertRecipient> recipients) {
         List<Long> senderIds = recipients.stream()
                 .map(recipient -> recipient.getEmergencyAlert().getSender().getId())
                 .distinct()

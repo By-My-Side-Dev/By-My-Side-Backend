@@ -17,7 +17,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketJwtChannelInterceptor webSocketJwtChannelInterceptor;
 
-    @Value("${websocket.allowed-origin-patterns:http://localhost:*}")
+    @Value("${websocket.allowed-origin-patterns}")
     private String[] allowedOriginPatterns;
 
     @Override
