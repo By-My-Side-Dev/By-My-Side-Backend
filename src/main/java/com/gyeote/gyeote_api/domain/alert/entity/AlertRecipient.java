@@ -1,5 +1,6 @@
-package com.gyeote.gyeote_api.domain.emergency.entity;
+package com.gyeote.gyeote_api.domain.alert.entity;
 
+import com.gyeote.gyeote_api.domain.emergency.entity.EmergencyAlerts;
 import com.gyeote.gyeote_api.domain.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -38,7 +39,7 @@ import java.time.LocalDateTime;
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class AlertRecipients {
+public class AlertRecipient {
 
     /** 수신 +24시간이 지나면 이전 알림 이력으로 이동한다. */
     public static final long EXPIRE_HOURS = 24;
@@ -80,7 +81,7 @@ public class AlertRecipients {
     private LocalDateTime createdAt;
 
     @Builder
-    private AlertRecipients(EmergencyAlerts emergencyAlert, User receiver) {
+    private AlertRecipient(EmergencyAlerts emergencyAlert, User receiver) {
         this.emergencyAlert = emergencyAlert;
         this.receiver = receiver;
     }
