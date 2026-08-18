@@ -11,6 +11,8 @@ import com.gyeote.gyeote_api.domain.emergency.repository.AlertLocationsRepositor
 
 import com.gyeote.gyeote_api.domain.location.dto.AlertLocationResponse;
 import com.gyeote.gyeote_api.domain.location.dto.AlertMapMarkerResponse;
+import com.gyeote.gyeote_api.domain.location.dto.AlertPathPointResponse;
+import com.gyeote.gyeote_api.domain.location.dto.AlertPathResponse;
 import com.gyeote.gyeote_api.domain.location.exception.LocationErrorCode;
 import com.gyeote.gyeote_api.domain.user.entity.User;
 import com.gyeote.gyeote_api.global.exception.BusinessException;
@@ -40,7 +42,12 @@ public class LocationService {
     private final ContactRepository contactRepository;
 
     /**
-     * 내가 받은 유효한 긴급 알림들의 위치를 지도 마커 목록으로 조회한다.
+     * 지인들이 발생시켜 내가 받은 유효한 긴급 알림들의 위치를 지도 마커로 조회한다.
+     * 실시간 위치 수신 조건을 만족하면 최신 위치 이력을 사용하고, 그렇지 않으면
+     * 긴급 호출이 생성된 시점의 좌표를 사용한다.
+     *
+     * @param userId 지도 위치를 조회하는 수신자 ID
+     * @return 만료되거나 보관되지 않은 긴급 알림의 지도 마커 목록
      */
     public List<AlertMapMarkerResponse> getReceivedAlertMapMarkers(Long userId) {
 
@@ -60,16 +67,15 @@ public class LocationService {
     }
 
     /**
-     * 특정 수신 알림의 발신자 위치를 조회한다.
+     * 지도 마커의 긴급 알림 ID로 해당 발신자의 위치 상세를 조회한다.
+     *
+     * @param userId 위치 상세를 조회하는 수신자 ID
+     * @param alertId 전체 지도 마커 응답에 포함된 긴급 알림 ID
+     * @return 현재 표시해야 하는 발신자의 위치 상세
+     * @throws BusinessException 알림이 없거나 사용자가 해당 알림의 수신자가 아닌 경우
      */
-    public AlertLocationResponse getReceivedAlertLocation(Long userId, Long alertRecipientId) {
-      
-        AlertRecipient recipient = alertRecipientRepository.findWithAlertById(alertRecipientId)
-                .orElseThrow(() -> new BusinessException(LocationErrorCode.LOCATION_NOT_FOUND));
-
-        if (!recipient.getReceiver().getId().equals(userId)) {
-            throw new BusinessException(LocationErrorCode.LOCATION_ACCESS_DENIED);
-        }
+    public AlertLocationResponse getReceivedAlertLocation(Long userId, Long alertId) {
+        AlertRecipient recipient = requireReceivedAlert(userId, alertId);
 
         EmergencyAlerts alert = recipient.getEmergencyAlert();
         User sender = alert.getSender();
@@ -95,6 +101,42 @@ public class LocationService {
                 recipient.getCreatedAt(),
                 locationUpdatedAtOf(alert, latestLocation)
         );
+    }
+
+    /**
+     * 지도 마커의 긴급 알림 ID로 호출 시작부터 현재까지의 이동 경로를 조회한다.
+     * 저장된 위치 이력은 기록 시각과 ID의 오름차순으로 반환한다. 비실시간 호출처럼
+     * 위치 이력이 없으면 긴급 호출 생성 시점의 최초 좌표를 단일 경로점으로 반환한다.
+     *
+     * @param userId 이동 경로를 조회하는 수신자 ID
+     * @param alertId 전체 지도 마커 응답에 포함된 긴급 알림 ID
+     * @return 호출 종료 시각과 시간순 위치 목록
+     * @throws BusinessException 알림이 없거나 사용자가 해당 알림의 수신자가 아닌 경우
+     */
+    public AlertPathResponse getReceivedAlertPath(Long userId, Long alertId) {
+        AlertRecipient recipient = requireReceivedAlert(userId, alertId);
+        EmergencyAlerts alert = recipient.getEmergencyAlert();
+
+        List<AlertPathPointResponse> locations = alertLocationsRepository
+                .findAllByEmergencyAlert_IdOrderByUpdatedAtAscIdAsc(alertId).stream()
+                .map(location -> new AlertPathPointResponse(
+                        location.getId(),
+                        location.getLatitude(),
+                        location.getLongitude(),
+                        location.getUpdatedAt()
+                ))
+                .toList();
+
+        if (locations.isEmpty()) {
+            locations = List.of(new AlertPathPointResponse(
+                    null,
+                    alert.getLatitude(),
+                    alert.getLongitude(),
+                    alert.getCreatedAt()
+            ));
+        }
+
+        return new AlertPathResponse(alert.getId(), alert.getEndedAt(), locations);
     }
 
     private AlertMapMarkerResponse toMarkerResponse(
@@ -180,5 +222,12 @@ public class LocationService {
 
     private Optional<Contact> findContact(Long userId, Long senderId) {
         return contactRepository.findByUser_IdAndContactUser_Id(userId, senderId);
+    }
+
+    private AlertRecipient requireReceivedAlert(Long userId, Long alertId) {
+        return alertRecipientRepository.findWithAlertByAlertIdAndReceiverId(alertId, userId)
+                .orElseThrow(() -> alertRecipientRepository.existsByEmergencyAlert_Id(alertId)
+                        ? new BusinessException(LocationErrorCode.LOCATION_ACCESS_DENIED)
+                        : new BusinessException(LocationErrorCode.LOCATION_NOT_FOUND));
     }
 }

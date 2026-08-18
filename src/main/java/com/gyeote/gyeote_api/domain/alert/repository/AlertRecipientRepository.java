@@ -16,6 +16,8 @@ import java.util.Optional;
 
 public interface AlertRecipientRepository extends JpaRepository<AlertRecipient, Long> {
 
+    boolean existsByEmergencyAlert_Id(Long alertId);
+
     @Query(
             value = """
                     select recipient
