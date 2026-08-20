@@ -23,6 +23,8 @@ import org.springframework.stereotype.Controller;
         description = """
                 STOMP WebSocket 실시간 위치 통신 API입니다.
                 /ws로 연결한 뒤 Authorization: Bearer {accessToken} CONNECT 헤더로 인증합니다.
+                연결 유지를 위해 클라이언트는 CONNECT 프레임에 heart-beat:20000,20000 헤더를 전송해야 합니다.
+                WebSocket 연결은 최대 1일간 유지되며, 만료 후에는 클라이언트가 다시 연결해야 합니다.
                 """
 )
 public class EmergencyLocationSocketController {
