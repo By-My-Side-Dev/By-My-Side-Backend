@@ -8,9 +8,16 @@ info:
     연결 순서는 다음과 같습니다.
 
     1. `/ws`에 네이티브 WebSocket으로 연결합니다. SockJS는 지원하지 않습니다.
-    2. STOMP `CONNECT` 프레임의 native header에 `Authorization: Bearer {accessToken}`을 담아 인증합니다.
+    2. STOMP `CONNECT` 프레임의 native header에 `Authorization: Bearer {accessToken}`과 `heart-beat: 20000,20000`을 담습니다.
     3. 수신자는 `/topic/emergency-alerts/{alertId}/location`을 구독하고, 발신자는 `/app/emergency-alerts/{alertId}/location`으로 위치를 전송합니다.
     4. 발신자는 비즈니스 오류를 `/user/queue/errors`에서 수신할 수 있습니다.
+
+    서버와 클라이언트는 20초 간격으로 양방향 STOMP heartbeat를 교환합니다.
+    클라이언트가 heartbeat를 지원하고 `CONNECT` 프레임에서 송수신 주기를 제안해야 실제 주기가 협상됩니다.
+    약속된 시간 동안 heartbeat 또는 실제 메시지가 수신되지 않으면 상대방은 연결 실패로 판단하고 재연결해야 합니다.
+
+    WebSocket 연결은 heartbeat 교환 여부와 관계없이 연결 시점부터 최대 1일(24시간)간 유지됩니다.
+    24시간이 지나면 서버가 정상 종료 close frame을 전송하고 연결을 종료하므로, 계속 사용하려면 클라이언트가 다시 연결하고 필요한 채널을 재구독해야 합니다.
 
     `CONNECT` 인증 실패와 `SUBSCRIBE` 권한 실패는 STOMP `ERROR` 프레임으로 처리됩니다.
     `/topic` 또는 `/queue`로 직접 `SEND`하는 요청은 허용되지 않습니다.
@@ -28,10 +35,14 @@ servers:
     tags:
       - name: environment:local
     x-stomp-version: "1.2"
+    x-max-connection-duration: PT24H
     x-stomp-connect-headers:
       Authorization:
         description: REST 로그인에서 발급받은 access token
         example: Bearer eyJhbGciOiJIUzI1NiJ9...
+      heart-beat:
+        description: 클라이언트 송신 및 수신 heartbeat 희망 주기(밀리초)
+        example: 20000,20000
   production:
     host: gyeote.ai.kr
     pathname: /ws
@@ -41,10 +52,14 @@ servers:
     tags:
       - name: environment:production
     x-stomp-version: "1.2"
+    x-max-connection-duration: PT24H
     x-stomp-connect-headers:
       Authorization:
         description: REST 로그인에서 발급받은 access token
         example: Bearer eyJhbGciOiJIUzI1NiJ9...
+      heart-beat:
+        description: 클라이언트 송신 및 수신 heartbeat 희망 주기(밀리초)
+        example: 20000,20000
 
 channels:
   emergencyLocationUpdateCommand:
