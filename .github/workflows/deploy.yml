@@ -35,6 +35,16 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      - name: Set up Node.js for AsyncAPI docs
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Generate AsyncAPI HTML documentation
+        run: |
+          chmod +x script/generate-asyncapi-docs.sh
+          ./script/generate-asyncapi-docs.sh
+
       - name: Verify application build
         run: |
           chmod +x gradlew
