@@ -19,7 +19,6 @@ public record AlertMapMarkerResponse(
         BigDecimal longitude,
         String address,
         boolean realtime,
-        boolean read,
         LocalDateTime createdAt,
         LocalDateTime locationUpdatedAt
 ) {

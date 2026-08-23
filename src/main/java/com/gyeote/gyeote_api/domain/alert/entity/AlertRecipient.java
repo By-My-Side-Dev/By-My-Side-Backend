@@ -8,7 +8,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -23,7 +22,7 @@ import java.time.LocalDateTime;
 
 /**
  * 긴급 호출 수신자별 상태 (DB 명세서 v1.1.0 — 3.7 alert_recipients).
- * 호출 1건 : 수신자 N명 관계를 풀어 읽음·수신 종료·만료·보관 상태를 기록한다.
+ * 호출 1건 : 수신자 N명 관계를 풀어 수신 종료·만료·보관 상태를 기록한다.
  */
 @Entity
 @Table(
@@ -31,10 +30,6 @@ import java.time.LocalDateTime;
         uniqueConstraints = @UniqueConstraint(
                 name = "uniq_alert_receiver",
                 columnNames = {"alert_id", "receiver_id"}
-        ),
-        indexes = @Index(
-                name = "idx_receiver_read",
-                columnList = "receiver_id, is_read"
         )
 )
 @Getter
@@ -58,12 +53,6 @@ public class AlertRecipient {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "receiver_id", nullable = false)
     private User receiver;
-
-    @Column(name = "is_read", nullable = false)
-    private boolean isRead;
-
-    @Column(name = "read_at")
-    private LocalDateTime readAt;
 
     @Column(name = "realtime_stopped_at")
     private LocalDateTime realtimeStoppedAt;
@@ -97,11 +86,6 @@ public class AlertRecipient {
         if (deleteAt == null) {
             deleteAt = createdAt.plusDays(RETENTION_DAYS);
         }
-    }
-
-    public void read(LocalDateTime readAt) {
-        this.isRead = true;
-        this.readAt = readAt;
     }
 
     public void stopRealtime(LocalDateTime stoppedAt) {
