@@ -13,8 +13,6 @@ public record ReceivedAlertDetailResponse(
         BigDecimal longitude,
         String address,
         boolean realtime,
-        boolean read,
-        LocalDateTime readAt,
         LocalDateTime realtimeStoppedAt,
         LocalDateTime endedAt,
         LocalDateTime createdAt,
