@@ -9,8 +9,6 @@ public record AlertHistoryResponse(
         String senderName,
         String senderProfileImageUrl,
         String address,
-        boolean read,
-        LocalDateTime readAt,
         LocalDateTime createdAt,
         LocalDateTime expiresAt,
         LocalDateTime archivedAt

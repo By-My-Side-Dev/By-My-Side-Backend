@@ -9,7 +9,6 @@ import com.gyeote.gyeote_api.domain.alert.repository.AlertRecipientRepository;
 import com.gyeote.gyeote_api.domain.emergency.entity.EmergencyAlerts;
 import com.gyeote.gyeote_api.domain.emergency.repository.AlertLocationsRepository;
 
-import com.gyeote.gyeote_api.domain.location.dto.AlertLocationResponse;
 import com.gyeote.gyeote_api.domain.location.dto.AlertMapMarkerResponse;
 import com.gyeote.gyeote_api.domain.location.dto.AlertPathPointResponse;
 import com.gyeote.gyeote_api.domain.location.dto.AlertPathResponse;
@@ -24,7 +23,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -64,42 +62,6 @@ public class LocationService {
         return recipients.stream()
                 .map(recipient -> toMarkerResponse(recipient, latestLocations, contacts))
                 .toList();
-    }
-
-    /**
-     * 지도 마커의 긴급 알림 ID로 해당 발신자의 위치 상세를 조회한다.
-     *
-     * @param userId 위치 상세를 조회하는 수신자 ID
-     * @param alertId 전체 지도 마커 응답에 포함된 긴급 알림 ID
-     * @return 현재 표시해야 하는 발신자의 위치 상세
-     * @throws BusinessException 알림이 없거나 사용자가 해당 알림의 수신자가 아닌 경우
-     */
-    public AlertLocationResponse getReceivedAlertLocation(Long userId, Long alertId) {
-        AlertRecipient recipient = requireReceivedAlert(userId, alertId);
-        EmergencyAlerts alert = recipient.getEmergencyAlert();
-        User sender = alert.getSender();
-        boolean realtime = isRealtimeTracking(recipient, findContact(userId, sender.getId()).orElse(null));
-        AlertLocations latestLocation = realtime
-                ? alertLocationsRepository
-                    .findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(alert.getId())
-                    .orElse(null)
-                : null;
-
-        return new AlertLocationResponse(
-                recipient.getId(),
-                alert.getId(),
-                sender.getId(),
-                sender.getName(),
-                sender.getProfileImageUrl(),
-                latitudeOf(alert, latestLocation),
-                longitudeOf(alert, latestLocation),
-                alert.getAddress(),
-                realtime,
-                recipient.getRealtimeStoppedAt(),
-                alert.getEndedAt(),
-                recipient.getCreatedAt(),
-                locationUpdatedAtOf(alert, latestLocation)
-        );
     }
 
     /**
@@ -158,7 +120,6 @@ public class LocationService {
                 longitudeOf(alert, latestLocation),
                 alert.getAddress(),
                 realtime,
-                recipient.isRead(),
                 recipient.getCreatedAt(),
                 locationUpdatedAtOf(alert, latestLocation)
         );
@@ -217,10 +178,6 @@ public class LocationService {
                         Function.identity(),
                         (previous, duplicated) -> previous
                 ));
-    }
-
-    private Optional<Contact> findContact(Long userId, Long senderId) {
-        return contactRepository.findByUser_IdAndContactUser_Id(userId, senderId);
     }
 
     private AlertRecipient requireReceivedAlert(Long userId, Long alertId) {

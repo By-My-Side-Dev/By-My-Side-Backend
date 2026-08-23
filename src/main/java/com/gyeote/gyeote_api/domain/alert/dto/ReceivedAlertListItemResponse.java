@@ -10,7 +10,6 @@ public record ReceivedAlertListItemResponse(
         String profileImageUrl,
         String address,
         LocalDateTime requestedAt,
-        @JsonProperty("isRead") boolean isRead,
         @JsonProperty("isRealtime") boolean isRealtime,
         LocalDateTime expiresAt
 ) {
