@@ -15,6 +15,7 @@ import com.gyeote.gyeote_api.domain.emergency.geocoding.ReverseGeocodingService;
 import com.gyeote.gyeote_api.domain.emergency.repository.AlertLocationsRepository;
 import com.gyeote.gyeote_api.domain.emergency.repository.EmergencyAlertsRepository;
 import com.gyeote.gyeote_api.domain.user.entity.User;
+import com.gyeote.gyeote_api.domain.user.entity.UserPlan;
 import com.gyeote.gyeote_api.domain.user.entity.UserStatus;
 import com.gyeote.gyeote_api.domain.user.repository.UserRepository;
 import com.gyeote.gyeote_api.global.exception.BusinessException;
@@ -112,6 +113,7 @@ public class EmergencyService {
             LocationUpdateRequest request
     ) {
         EmergencyAlerts emergencyAlert = findUpdatableAlert(userId, alertId);
+        verifyUserPlan(emergencyAlert, UserPlan.PAID);
         verifyUpdateInterval(alertId, LocalDateTime.now());
 
         BigDecimal latitude = normalizeCoordinate(request.latitude());
@@ -136,6 +138,7 @@ public class EmergencyService {
             LocationUpdateRequest request
     ) {
         EmergencyAlerts emergencyAlert = findUpdatableAlert(userId, alertId);
+        verifyUserPlan(emergencyAlert, UserPlan.FREE);
 
         LocalDateTime now = LocalDateTime.now();
         Optional<AlertLocations> latestLocation = verifyUpdateInterval(alertId, now);
@@ -170,6 +173,12 @@ public class EmergencyService {
         }
 
         return emergencyAlert;
+    }
+
+    private void verifyUserPlan(EmergencyAlerts emergencyAlert, UserPlan requiredPlan) {
+        if (emergencyAlert.getSender().getPlan() != requiredPlan) {
+            throw new BusinessException(CommonErrorCode.COMMON_FORBIDDEN);
+        }
     }
 
     /**
