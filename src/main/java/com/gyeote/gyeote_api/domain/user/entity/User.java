@@ -53,7 +53,11 @@ public class User {
     private String profileImageUrl;
 
     @Column(name = "realtime_location_enabled", nullable = false)
-    private boolean realtimeLocationEnabled;
+    private boolean realtimeLocationEnabled = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserPlan plan;
 
     @Column(name = "receive_contacts_only", nullable = false)
     private boolean receiveContactsOnly;
@@ -87,7 +91,8 @@ public class User {
     private User(String name, String loginId, String passwordHash,
                  String provider, String providerUid, String profileImageUrl,
                  boolean agreeLocation, boolean agreePrivacy,
-                 boolean agreeTerms, boolean agreeThirdParty) {
+                 boolean agreeTerms, boolean agreeThirdParty,
+                 UserPlan plan) {
         this.name = name;
         this.loginId = loginId;
         this.passwordHash = passwordHash;
@@ -98,6 +103,7 @@ public class User {
         this.agreePrivacy = agreePrivacy;
         this.agreeTerms = agreeTerms;
         this.agreeThirdParty = agreeThirdParty;
+        this.plan = plan;
     }
 
     @PrePersist
@@ -107,6 +113,9 @@ public class User {
         }
         if (status == null) {
             status = UserStatus.DEACTIVE;
+        }
+        if (plan == null) {
+            plan = UserPlan.FREE;
         }
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
