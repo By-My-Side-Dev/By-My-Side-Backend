@@ -20,8 +20,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 실시간 위치 공유가 활성화된 긴급 호출의 위치 이력.
- * 위치를 수신할 때마다 새 행을 생성하여 이동 경로를 누적한다.
+ * 긴급 호출의 위치.
+ * 실시간 호출은 위치를 수신할 때마다 새 행을 생성하고,
+ * 1회성 호출은 최초에 생성한 행의 좌표를 계속 갱신한다.
  */
 @Entity
 @Table(
@@ -76,5 +77,16 @@ public class AlertLocations {
         if (deleteAt == null) {
             deleteAt = updatedAt.plusDays(RETENTION_DAYS);
         }
+    }
+
+    public void updateCoordinates(
+            BigDecimal latitude,
+            BigDecimal longitude,
+            LocalDateTime updatedAt
+    ) {
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.updatedAt = updatedAt;
+        this.deleteAt = updatedAt.plusDays(RETENTION_DAYS);
     }
 }

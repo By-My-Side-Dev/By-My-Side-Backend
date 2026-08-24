@@ -2,6 +2,8 @@ package com.gyeote.gyeote_api.domain.emergency.controller;
 
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyRequest;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyResponse;
+import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateRequest;
+import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateResponse;
 import com.gyeote.gyeote_api.domain.emergency.service.EmergencyService;
 import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
@@ -26,7 +28,8 @@ public class EmergencyController {
                     사용자가 도움 요청 버튼을 누르면 긴급 호출을 생성합니다.
                     요청 좌표는 호출 시점 위치로 저장되며 소수점 7자리로 반올림됩니다.
                     주소는 서버가 좌표를 역지오코딩하여 저장하며, 조회할 수 없는 경우 null로 저장됩니다.
-                    사용자 실시간 위치 설정이 활성화되어 있으면 alert_locations에 최초 위치를 함께 생성합니다.
+                    alert_locations에 최초 위치 행을 생성합니다.
+                    실시간 호출은 위치 이력을 누적하고, 1회성 호출은 이 행을 계속 갱신합니다.
                     """
     )
     @PostMapping
@@ -35,6 +38,28 @@ public class EmergencyController {
             @Valid @RequestBody EmergencyRequest request
     ) {
         return ApiResponse.success("도움 요청 전송 성공", emergencyService.createEmergency(principal.id(), request));
+    }
+
+    @Operation(
+            summary = "현재 위치 갱신",
+            description = """
+                    진행 중인 긴급 호출의 현재 위치를 갱신합니다.
+                    위치 이력을 누적하지 않고 기존 위치 행 하나를 계속 갱신합니다.
+                    호출을 생성한 사용자만 갱신할 수 있으며, 이미 종료된 호출은 409 Conflict를 반환합니다.
+                    기본 15초 간격으로 처리하며, 이보다 빠른 요청은 429 Too Many Requests를 반환합니다.
+                    이력을 누적하는 실시간 위치 전송은 STOMP /app/emergency-alerts/{alertId}/location을 사용합니다.
+                    """
+    )
+    @PatchMapping("/{alertId}/location")
+    public ApiResponse<LocationUpdateResponse> updateCurrentLocation(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long alertId,
+            @Valid @RequestBody LocationUpdateRequest request
+    ) {
+        return ApiResponse.success(
+                "현재 위치 갱신 성공",
+                emergencyService.updateCurrentLocation(principal.id(), alertId, request)
+        );
     }
 
     @Operation(

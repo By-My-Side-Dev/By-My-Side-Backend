@@ -47,8 +47,13 @@ public class EmergencyAlerts {
     private Long version;
 
     @Builder
-    private EmergencyAlerts(User sender, BigDecimal latitude, BigDecimal longitude,
-                             String address, boolean isRealtime) {
+    private EmergencyAlerts(
+            User sender,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            String address,
+            boolean isRealtime
+    ) {
         this.sender = sender;
         this.latitude = latitude;
         this.longitude = longitude;

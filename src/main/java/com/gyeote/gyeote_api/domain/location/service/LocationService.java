@@ -27,8 +27,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 수신한 긴급 알림의 위치 조회. 발신자가 실시간 공유 중이면 최신 좌표를,
- * 그렇지 않으면 호출 시점 좌표를 반환한다.
+ * 수신한 긴급 알림의 위치를 조회한다.
+ * 실시간과 1회성 호출 모두 가장 최근에 수신한 좌표를 반환한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -41,16 +41,15 @@ public class LocationService {
 
     /**
      * 지인들이 발생시켜 내가 받은 유효한 긴급 알림들의 위치를 지도 마커로 조회한다.
-     * 실시간 위치 수신 조건을 만족하면 최신 위치 이력을 사용하고, 그렇지 않으면
-     * 긴급 호출이 생성된 시점의 좌표를 사용한다.
+     * 모든 호출의 최신 위치 행을 사용한다.
+     * realtime 표시는 수신자의 실시간 수신 조건을 따로 반영한다.
      *
      * @param userId 지도 위치를 조회하는 수신자 ID
      * @return 만료되거나 보관되지 않은 긴급 알림의 지도 마커 목록
      */
     public List<AlertMapMarkerResponse> getReceivedAlertMapMarkers(Long userId) {
 
-        List<AlertRecipient> recipients =
-                alertRecipientRepository.findActiveByReceiverId(userId, LocalDateTime.now());
+        List<AlertRecipient> recipients = alertRecipientRepository.findActiveByReceiverId(userId, LocalDateTime.now());
 
         if (recipients.isEmpty()) {
             return List.of();
@@ -108,7 +107,7 @@ public class LocationService {
         EmergencyAlerts alert = recipient.getEmergencyAlert();
         User sender = alert.getSender();
         boolean realtime = isRealtimeTracking(recipient, contacts.get(sender.getId()));
-        AlertLocations latestLocation = realtime ? latestLocations.get(alert.getId()) : null;
+        AlertLocations latestLocation = latestLocations.get(alert.getId());
 
         return new AlertMapMarkerResponse(
                 recipient.getId(),

@@ -1,7 +1,7 @@
 package com.gyeote.gyeote_api.domain.emergency.controller;
 
-import com.gyeote.gyeote_api.domain.emergency.dto.RealtimeLocationUpdateRequest;
-import com.gyeote.gyeote_api.domain.emergency.dto.RealtimeLocationUpdateResponse;
+import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateRequest;
+import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateResponse;
 import com.gyeote.gyeote_api.domain.emergency.service.EmergencyService;
 import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import com.gyeote.gyeote_api.global.exception.BusinessException;
@@ -36,22 +36,23 @@ public class EmergencyLocationSocketController {
             summary = "실시간 위치 갱신(WebSocket)",
             description = """
                     STOMP SEND 목적지: /app/emergency-alerts/{alertId}/location
-                    실시간 위치가 활성화된 호출의 발신자만 좌표를 갱신할 수 있습니다.
+                    실시간 전송이 허용된 호출의 발신자만 사용할 수 있으며, 그 외에는 COMMON_FORBIDDEN 오류를 반환합니다.
+                    1회성 위치 갱신은 PATCH /api/v1/emergency-alerts/{alertId}/location을 사용합니다.
                     위치 갱신은 기본 15초 간격으로 처리하며, 이보다 빠른 요청은 COMMON_TOO_MANY_REQUESTS 오류를 반환합니다.
-                    위치를 수신할 때마다 alert_locations에 새 이력 행을 저장합니다.
+                    호출마다 alert_locations에 새 이력 행을 누적 저장합니다.
                     갱신된 좌표는 /topic/emergency-alerts/{alertId}/location 구독자에게 전달됩니다.
                     비즈니스 오류는 /user/queue/errors에서 수신할 수 있습니다.
                     """
     )
     @MessageMapping("/emergency-alerts/{alertId}/location")
-    public void updateLocation(
+    public void updateRealtimeLocation(
             @DestinationVariable Long alertId,
-            @Valid @Payload RealtimeLocationUpdateRequest request,
+            @Valid @Payload LocationUpdateRequest request,
             Authentication authentication
     ) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
 
-        RealtimeLocationUpdateResponse response = emergencyService.updateRealtimeLocation(
+        LocationUpdateResponse response = emergencyService.updateRealtimeLocation(
                 principal.id(),
                 alertId,
                 request
