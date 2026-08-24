@@ -21,15 +21,35 @@ public class EmergencyLocationSocketController {
     private final EmergencyService emergencyService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    @MessageMapping("/emergency-alerts/{alertId}/location")
-    public void updateLocation(
+    @MessageMapping("/emergency-alerts/{alertId}/location/paid")
+    public void createPaidLocation(
             @DestinationVariable Long alertId,
             @Valid @Payload LocationUpdateRequest request,
             Authentication authentication
     ) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
 
-        LocationUpdateResponse response = emergencyService.updateLocation(
+        LocationUpdateResponse response = emergencyService.createPaidLocation(
+                principal.id(),
+                alertId,
+                request
+        );
+
+        messagingTemplate.convertAndSend(
+                "/topic/emergency-alerts/" + alertId + "/location",
+                response
+        );
+    }
+
+    @MessageMapping("/emergency-alerts/{alertId}/location/free")
+    public void updateFreeLocation(
+            @DestinationVariable Long alertId,
+            @Valid @Payload LocationUpdateRequest request,
+            Authentication authentication
+    ) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+
+        LocationUpdateResponse response = emergencyService.updateFreeLocation(
                 principal.id(),
                 alertId,
                 request

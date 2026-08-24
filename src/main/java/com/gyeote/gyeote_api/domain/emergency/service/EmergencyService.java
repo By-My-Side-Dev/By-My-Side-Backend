@@ -15,6 +15,7 @@ import com.gyeote.gyeote_api.domain.emergency.geocoding.ReverseGeocodingService;
 import com.gyeote.gyeote_api.domain.emergency.repository.AlertLocationsRepository;
 import com.gyeote.gyeote_api.domain.emergency.repository.EmergencyAlertsRepository;
 import com.gyeote.gyeote_api.domain.user.entity.User;
+import com.gyeote.gyeote_api.domain.user.entity.UserPlan;
 import com.gyeote.gyeote_api.domain.user.entity.UserStatus;
 import com.gyeote.gyeote_api.domain.user.repository.UserRepository;
 import com.gyeote.gyeote_api.global.exception.BusinessException;
@@ -50,10 +51,13 @@ public class EmergencyService {
     private long locationUpdateIntervalSeconds;
 
     /**
-     * 도움 요청 생성.
-     * @param userId 유저 아이디
-     * @param request 위도와 경도
-     * @return 알림 아이디
+     * 사용자의 현재 위치로 긴급 호출을 생성하고 활성 상태인 지인들을 수신자로 등록한다.
+     * 실시간 위치 공유 설정과 관계없이 최초 위치는 위치 이력에 저장한다.
+     *
+     * @param userId 긴급 호출을 생성하는 사용자 ID
+     * @param request 최초 위도와 경도
+     * @return 생성된 긴급 호출 ID를 포함한 응답
+     * @throws BusinessException 사용자를 찾을 수 없거나 호출을 받을 활성 지인이 없는 경우
      */
     @Transactional
     public EmergencyResponse createEmergency(Long userId, EmergencyRequest request) {
@@ -80,7 +84,6 @@ public class EmergencyService {
                 .latitude(latitude)
                 .longitude(longitude)
                 .address(address)
-                .isRealtime(sender.isRealtimeLocationEnabled())
                 .build();
 
         emergencyAlertsRepository.save(emergencyAlert);
@@ -105,21 +108,60 @@ public class EmergencyService {
     }
 
     /**
-     * WebSocket으로 긴급 호출의 위치를 갱신한다.
-     * 실시간 호출은 위치 이력을 새 행으로 누적하고,
-     * 1회성 호출은 기존 위치 행 하나를 계속 갱신한다.
-     * @param userId 유저 아이디
-     * @param alertId 알림 아이디
-     * @param request 현재 위치를 받는다.
-     * @return 갱신된 좌표
+     * 유료 사용자의 현재 위치를 새로운 위치 이력으로 저장한다.
+     *
+     * @param userId 위치를 전송하는 사용자 ID
+     * @param alertId 갱신할 긴급 호출 ID
+     * @param request 새 위도와 경도
+     * @return 정규화된 좌표를 포함한 위치 갱신 응답
+     * @throws BusinessException 호출을 찾을 수 없거나 종료된 경우, 실시간 위치 공유가 꺼진 경우,
+     *                           유료 사용자가 아니거나 갱신 주기를 지키지 않은 경우
      */
     @Transactional
-    public LocationUpdateResponse updateLocation(
+    public LocationUpdateResponse createPaidLocation(
             Long userId,
             Long alertId,
             LocationUpdateRequest request
     ) {
         EmergencyAlerts emergencyAlert = findUpdatableAlert(userId, alertId);
+        verifyRealtimeLocationSharing(emergencyAlert.getSender());
+        verifyUserPlan(emergencyAlert, UserPlan.PAID);
+        verifyUpdateInterval(alertId, LocalDateTime.now());
+
+        BigDecimal latitude = normalizeCoordinate(request.latitude());
+        BigDecimal longitude = normalizeCoordinate(request.longitude());
+
+        alertLocationsRepository.save(
+                AlertLocations.builder()
+                        .emergencyAlert(emergencyAlert)
+                        .latitude(latitude)
+                        .longitude(longitude)
+                        .build()
+        );
+
+        return new LocationUpdateResponse(alertId, latitude, longitude);
+    }
+
+    /**
+     * 무료 사용자의 최신 위치 이력에 현재 좌표를 덮어쓴다.
+     * 기존 위치 이력이 없으면 새로운 위치 이력을 저장한다.
+     *
+     * @param userId 위치를 전송하는 사용자 ID
+     * @param alertId 갱신할 긴급 호출 ID
+     * @param request 새 위도와 경도
+     * @return 정규화된 좌표를 포함한 위치 갱신 응답
+     * @throws BusinessException 호출을 찾을 수 없거나 종료된 경우, 실시간 위치 공유가 꺼진 경우,
+     *                           무료 사용자가 아니거나 갱신 주기를 지키지 않은 경우
+     */
+    @Transactional
+    public LocationUpdateResponse updateFreeLocation(
+            Long userId,
+            Long alertId,
+            LocationUpdateRequest request
+    ) {
+        EmergencyAlerts emergencyAlert = findUpdatableAlert(userId, alertId);
+        verifyRealtimeLocationSharing(emergencyAlert.getSender());
+        verifyUserPlan(emergencyAlert, UserPlan.FREE);
 
         LocalDateTime now = LocalDateTime.now();
         Optional<AlertLocations> latestLocation = verifyUpdateInterval(alertId, now);
@@ -127,27 +169,15 @@ public class EmergencyService {
         BigDecimal latitude = normalizeCoordinate(request.latitude());
         BigDecimal longitude = normalizeCoordinate(request.longitude());
 
-        // [실시간 위치 전송] isRealtime 버튼 설정 방식
-        if (emergencyAlert.isRealtime()) {
-            // 새 행 추가
-            alertLocationsRepository.save(
-                    AlertLocations.builder()
-                        .emergencyAlert(emergencyAlert)
-                        .latitude(latitude)
-                        .longitude(longitude)
-                        .build()
-            );
-        } else if (latestLocation.isPresent()) {
-            // 기존의 한 행의 좌표 업데이트
+        if (latestLocation.isPresent()) {
             latestLocation.get().updateCoordinates(latitude, longitude, now);
         } else {
-            // 위치 행이 없으면 최초 행 생성
             alertLocationsRepository.save(
                     AlertLocations.builder()
-                        .emergencyAlert(emergencyAlert)
-                        .latitude(latitude)
-                        .longitude(longitude)
-                        .build()
+                            .emergencyAlert(emergencyAlert)
+                            .latitude(latitude)
+                            .longitude(longitude)
+                            .build()
             );
         }
 
@@ -156,6 +186,12 @@ public class EmergencyService {
 
     /**
      * 위치를 갱신할 수 있는 본인 소유의 진행 중인 호출을 조회한다.
+     * 동시 위치 갱신을 직렬화하기 위해 조회한 호출에 쓰기 잠금을 획득한다.
+     *
+     * @param userId 긴급 호출 발신자 ID
+     * @param alertId 조회할 긴급 호출 ID
+     * @return 위치를 갱신할 수 있는 진행 중인 긴급 호출
+     * @throws BusinessException 본인 소유의 호출을 찾을 수 없거나 이미 종료된 경우
      */
     private EmergencyAlerts findUpdatableAlert(Long userId, Long alertId) {
         EmergencyAlerts emergencyAlert = emergencyAlertsRepository.findByIdAndSenderIdForUpdate(alertId, userId)
@@ -169,7 +205,38 @@ public class EmergencyService {
     }
 
     /**
+     * 긴급 호출 발신자의 요금제가 요청한 위치 전송 방식에 필요한 요금제인지 검증한다.
+     *
+     * @param emergencyAlert 위치를 갱신할 긴급 호출
+     * @param requiredPlan 요청한 위치 전송 방식에 필요한 요금제
+     * @throws BusinessException 발신자의 요금제가 필요한 요금제와 다를 경우
+     */
+    private void verifyUserPlan(EmergencyAlerts emergencyAlert, UserPlan requiredPlan) {
+        if (emergencyAlert.getSender().getPlan() != requiredPlan) {
+            throw new BusinessException(CommonErrorCode.COMMON_FORBIDDEN);
+        }
+    }
+
+    /**
+     * 긴급 호출 발신자가 실시간 위치 공유를 허용하고 있는지 검증한다.
+     * 토글이 꺼져 있으면 최초 위치 이후의 위치 갱신을 허용하지 않는다.
+     *
+     * @param sender 실시간 위치를 공유하는 긴급 호출 발신자
+     * @throws BusinessException 발신자가 실시간 위치 공유를 비활성화한 경우
+     */
+    private void verifyRealtimeLocationSharing(User sender) {
+        if (!sender.isRealtimeLocationEnabled()) {
+            throw new BusinessException(CommonErrorCode.COMMON_FORBIDDEN);
+        }
+    }
+
+    /**
      * 최근 갱신 이후 설정된 간격이 지났는지 확인하고 최신 위치를 반환한다.
+     *
+     * @param alertId 위치 이력을 조회할 긴급 호출 ID
+     * @param now 갱신 주기를 판단할 기준 시각
+     * @return 최신 위치 이력. 저장된 위치가 없으면 빈 {@link Optional}
+     * @throws BusinessException 최근 위치 갱신 후 허용된 간격이 지나지 않은 경우
      */
     private Optional<AlertLocations> verifyUpdateInterval(Long alertId, LocalDateTime now) {
         Optional<AlertLocations> latestLocation = alertLocationsRepository.findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(alertId);
@@ -185,9 +252,11 @@ public class EmergencyService {
     }
 
     /**
-     * 도움 요청 종료.
-     * @param userId 유저 아이디
-     * @param alertId 알림 아이디
+     * 사용자가 생성한 진행 중인 긴급 호출을 종료한다.
+     *
+     * @param userId 긴급 호출 발신자 ID
+     * @param alertId 종료할 긴급 호출 ID
+     * @throws BusinessException 본인 소유의 호출을 찾을 수 없거나 이미 종료된 경우
      */
     @Transactional
     public void endEmergency(Long userId, Long alertId) {
@@ -198,19 +267,18 @@ public class EmergencyService {
             throw new BusinessException(CommonErrorCode.COMMON_FORBIDDEN);
         }
 
-        if (emergencyAlert.isRealtime()) {
-            if (emergencyAlert.getEndedAt() != null) {
-                throw new BusinessException(CommonErrorCode.COMMON_CONFLICT);
-            }
-
-            emergencyAlert.end(LocalDateTime.now());
+        if (emergencyAlert.getEndedAt() != null) {
+            throw new BusinessException(CommonErrorCode.COMMON_CONFLICT);
         }
+
+        emergencyAlert.end(LocalDateTime.now());
     }
 
     /**
-     * 7자리 정수로 코드 정규화
-     * @param coordinate 입력된 소수점
-     * @return 7자리 소수점으로 반환
+     * GPS 좌표를 소수점 이하 7자리로 반올림한다.
+     *
+     * @param coordinate 정규화할 GPS 좌표
+     * @return 소수점 이하 7자리로 정규화된 좌표
      */
     private BigDecimal normalizeCoordinate(BigDecimal coordinate) {
         return coordinate.setScale(GPS_SCALE, RoundingMode.HALF_UP);

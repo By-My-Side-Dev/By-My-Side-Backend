@@ -126,12 +126,12 @@ public class LocationService {
 
     /**
      * 실시간 위치로 표시할 알림인지 판단한다.
-     * 호출이 실시간 모드로 생성됐고, 발신자가 공유를 끝내지 않았고,
+     * 발신자의 실시간 위치 공유 설정이 켜져 있고, 발신자가 공유를 끝내지 않았고,
      * 수신자도 수신을 종료하지 않았으며, 해당 지인의 실시간 수신 설정이 켜져 있어야 한다.
      */
     private boolean isRealtimeTracking(AlertRecipient recipient, Contact contact) {
         EmergencyAlerts alert = recipient.getEmergencyAlert();
-        return alert.isRealtime()
+        return alert.getSender().isRealtimeLocationEnabled()
                 && alert.getEndedAt() == null
                 && !recipient.isRealtimeStopped()
                 && contact != null

@@ -33,9 +33,6 @@ public class EmergencyAlerts {
     @Column(name = "address")
     private String address;
 
-    @Column(name = "is_realtime", nullable = false)
-    private boolean isRealtime;
-
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
@@ -51,14 +48,12 @@ public class EmergencyAlerts {
             User sender,
             BigDecimal latitude,
             BigDecimal longitude,
-            String address,
-            boolean isRealtime
+            String address
     ) {
         this.sender = sender;
         this.latitude = latitude;
         this.longitude = longitude;
         this.address = address;
-        this.isRealtime = isRealtime;
     }
 
     @PrePersist

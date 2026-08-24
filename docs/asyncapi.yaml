@@ -1,7 +1,7 @@
 asyncapi: 3.1.0
 info:
   title: 곁에 실시간 위치 WebSocket API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     긴급 호출 발신자의 위치를 실시간으로 전달하는 STOMP over WebSocket API입니다.
 
@@ -9,8 +9,13 @@ info:
 
     1. `/ws`에 네이티브 WebSocket으로 연결합니다. SockJS는 지원하지 않습니다.
     2. STOMP `CONNECT` 프레임의 native header에 `Authorization: Bearer {accessToken}`과 `heart-beat: 20000,20000`을 담습니다.
-    3. 수신자는 `/topic/emergency-alerts/{alertId}/location`을 구독하고, 발신자는 `/app/emergency-alerts/{alertId}/location`으로 위치를 전송합니다.
-    4. 발신자는 비즈니스 오류를 `/user/queue/errors`에서 수신할 수 있습니다.
+    3. 수신자는 `/topic/emergency-alerts/{alertId}/location`을 구독합니다.
+    4. 발신자는 유료 방식이면 `/app/emergency-alerts/{alertId}/location/paid`, 무료 방식이면 `/app/emergency-alerts/{alertId}/location/free`로 위치를 전송합니다.
+    5. 발신자는 비즈니스 오류를 `/user/queue/errors`에서 수신할 수 있습니다.
+
+    긴급 호출의 최초 위치는 발신자의 실시간 위치 공유 설정과 관계없이 수신자에게 제공됩니다.
+    이후 WebSocket 위치는 발신자의 `realtimeLocationEnabled` 설정이 켜진 동안에만 전송되며,
+    설정을 끄면 진행 중인 호출에서도 다음 위치 갱신부터 즉시 거부됩니다.
 
     서버와 클라이언트는 20초 간격으로 양방향 STOMP heartbeat를 교환합니다.
     클라이언트가 heartbeat를 지원하고 `CONNECT` 프레임에서 송수신 주기를 제안해야 실제 주기가 협상됩니다.
@@ -62,13 +67,33 @@ servers:
         example: 20000,20000
 
 channels:
-  emergencyLocationUpdateCommand:
-    address: /app/emergency-alerts/{alertId}/location
-    title: 긴급 호출 위치 갱신
+  paidEmergencyLocationCommand:
+    address: /app/emergency-alerts/{alertId}/location/paid
+    title: 유료 긴급 호출 위치 추가
     description: |
-      긴급 호출 발신자가 현재 좌표를 서버에 전송하는 STOMP `SEND` 목적지입니다.
-      실시간과 1회성 호출 모두 해당 호출의 발신자만 사용할 수 있습니다.
-      실시간 호출은 위치 이력을 새 행으로 누적하고, 1회성 호출은 하나의 위치 행을 계속 갱신합니다.
+      유료 방식의 현재 좌표를 서버에 전송하는 STOMP `SEND` 목적지입니다.
+      호출 발신자의 사용자 플랜이 `PAID`일 때만 사용할 수 있습니다.
+      발신자의 실시간 위치 공유 설정이 켜져 있어야 합니다.
+      좌표를 수신할 때마다 위치 이력을 새 행으로 추가합니다.
+      서버는 기본 15초의 최소 갱신 간격을 적용하며, 좌표를 소수점 이하 7자리로 반올림해 저장합니다.
+    servers:
+      - $ref: "#/servers/local"
+      - $ref: "#/servers/production"
+    parameters:
+      alertId:
+        $ref: "#/components/parameters/alertId"
+    messages:
+      locationUpdateRequest:
+        $ref: "#/components/messages/locationUpdateRequest"
+
+  freeEmergencyLocationCommand:
+    address: /app/emergency-alerts/{alertId}/location/free
+    title: 무료 긴급 호출 위치 갱신
+    description: |
+      무료 방식의 현재 좌표를 서버에 전송하는 STOMP `SEND` 목적지입니다.
+      호출 발신자의 사용자 플랜이 `FREE`일 때만 사용할 수 있습니다.
+      발신자의 실시간 위치 공유 설정이 켜져 있어야 합니다.
+      기존 최신 위치 행의 좌표를 갱신하며, 위치 행이 없는 예외적인 경우에만 최초 행을 생성합니다.
       서버는 기본 15초의 최소 갱신 간격을 적용하며, 좌표를 소수점 이하 7자리로 반올림해 저장합니다.
     servers:
       - $ref: "#/servers/local"
@@ -111,16 +136,27 @@ channels:
         $ref: "#/components/messages/businessError"
 
 operations:
-  receiveEmergencyLocationUpdate:
+  receivePaidEmergencyLocation:
     action: receive
-    title: 발신자의 실시간 위치 갱신 수신
-    summary: 서버가 긴급 호출 발신자의 현재 좌표를 수신합니다.
+    title: 유료 위치 추가 요청 수신
+    summary: 서버가 현재 좌표를 새 위치 이력으로 추가합니다.
     description: |
       클라이언트는 이 채널에 STOMP `SEND`합니다. 성공 응답은 별도로 없으며, 저장된 좌표는 위치 구독 채널로 브로드캐스트됩니다.
     channel:
-      $ref: "#/channels/emergencyLocationUpdateCommand"
+      $ref: "#/channels/paidEmergencyLocationCommand"
     messages:
-      - $ref: "#/channels/emergencyLocationUpdateCommand/messages/locationUpdateRequest"
+      - $ref: "#/channels/paidEmergencyLocationCommand/messages/locationUpdateRequest"
+
+  receiveFreeEmergencyLocation:
+    action: receive
+    title: 무료 위치 갱신 요청 수신
+    summary: 서버가 기존 최신 위치 행의 좌표를 갱신합니다.
+    description: |
+      클라이언트는 이 채널에 STOMP `SEND`합니다. 성공 응답은 별도로 없으며, 저장된 좌표는 위치 구독 채널로 브로드캐스트됩니다.
+    channel:
+      $ref: "#/channels/freeEmergencyLocationCommand"
+    messages:
+      - $ref: "#/channels/freeEmergencyLocationCommand/messages/locationUpdateRequest"
 
   sendEmergencyLocationUpdated:
     action: send

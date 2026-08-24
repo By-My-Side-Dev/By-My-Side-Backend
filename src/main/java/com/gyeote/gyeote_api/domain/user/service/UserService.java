@@ -46,7 +46,8 @@ public class UserService {
                 user.getLoginId(),
                 phoneNumber,
                 user.getProfileImageUrl(),
-                user.isRealtimeLocationEnabled()
+                user.isRealtimeLocationEnabled(),
+                user.getPlan()
         );
     }
 
