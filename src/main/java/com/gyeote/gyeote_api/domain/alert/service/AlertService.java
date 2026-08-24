@@ -80,7 +80,7 @@ public class AlertService {
                 sender.getProfileImageUrl(),
                 alert.getAddress(),
                 alert.getCreatedAt(),
-                alert.isRealtime(),
+                sender.isRealtimeLocationEnabled(),
                 recipient.getExpiresAt()
         );
     }
@@ -116,7 +116,7 @@ public class AlertService {
 
     private boolean isRealtimeTracking(AlertRecipient recipient, Contact contact, LocalDateTime now) {
         EmergencyAlerts alert = recipient.getEmergencyAlert();
-        return alert.isRealtime()
+        return alert.getSender().isRealtimeLocationEnabled()
                 && alert.getEndedAt() == null
                 && recipient.getArchivedAt() == null
                 && recipient.getExpiresAt().isAfter(now)

@@ -53,7 +53,7 @@ public class User {
     private String profileImageUrl;
 
     @Column(name = "realtime_location_enabled", nullable = false)
-    private boolean realtimeLocationEnabled;
+    private boolean realtimeLocationEnabled = true;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
