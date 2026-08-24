@@ -105,51 +105,16 @@ public class EmergencyService {
     }
 
     /**
-     * 실시간 위치를 갱신한다(WebSocket 전용).
-     * 실시간 전송이 허용된 호출만 사용할 수 있으며, 위치 이력을 새 행으로 누적한다.
+     * WebSocket으로 긴급 호출의 위치를 갱신한다.
+     * 실시간 호출은 위치 이력을 새 행으로 누적하고,
+     * 1회성 호출은 기존 위치 행 하나를 계속 갱신한다.
      * @param userId 유저 아이디
      * @param alertId 알림 아이디
      * @param request 현재 위치를 받는다.
      * @return 갱신된 좌표
      */
     @Transactional
-    public LocationUpdateResponse updateRealtimeLocation(
-            Long userId,
-            Long alertId,
-            LocationUpdateRequest request
-    ) {
-        EmergencyAlerts emergencyAlert = findUpdatableAlert(userId, alertId);
-
-        // [실시간 위치 토글 검사] 실시간 전송이 허용되지 않은 호출은 REST 단건 갱신만 사용할 수 있다.
-        if (!emergencyAlert.isRealtime()) {
-            throw new BusinessException(CommonErrorCode.COMMON_FORBIDDEN);
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        verifyUpdateInterval(alertId, now);
-
-        BigDecimal latitude = normalizeCoordinate(request.latitude());
-        BigDecimal longitude = normalizeCoordinate(request.longitude());
-
-        alertLocationsRepository.save(AlertLocations.builder()
-                .emergencyAlert(emergencyAlert)
-                .latitude(latitude)
-                .longitude(longitude)
-                .build());
-
-        return new LocationUpdateResponse(alertId, latitude, longitude);
-    }
-
-    /**
-     * 현재 위치를 갱신한다(REST 전용).
-     * 이력을 누적하지 않고 기존 위치 행 하나를 계속 갱신한다.
-     * @param userId 유저 아이디
-     * @param alertId 알림 아이디
-     * @param request 현재 위치를 받는다.
-     * @return 갱신된 좌표
-     */
-    @Transactional
-    public LocationUpdateResponse updateCurrentLocation(
+    public LocationUpdateResponse updateLocation(
             Long userId,
             Long alertId,
             LocationUpdateRequest request
@@ -162,17 +127,28 @@ public class EmergencyService {
         BigDecimal latitude = normalizeCoordinate(request.latitude());
         BigDecimal longitude = normalizeCoordinate(request.longitude());
 
-        // [실시간 위치 조회] 만약 alert_location에 행이 있는지 없는지 검사
-        if (latestLocation.isPresent()) {
-            // 위치 행이 있으면 같은 행을 계속해서 업데이트
+        // [실시간 위치 전송] isRealtime 버튼 설정 방식
+        if (emergencyAlert.isRealtime()) {
+            // 새 행 추가
+            alertLocationsRepository.save(
+                    AlertLocations.builder()
+                        .emergencyAlert(emergencyAlert)
+                        .latitude(latitude)
+                        .longitude(longitude)
+                        .build()
+            );
+        } else if (latestLocation.isPresent()) {
+            // 기존의 한 행의 좌표 업데이트
             latestLocation.get().updateCoordinates(latitude, longitude, now);
         } else {
-            // 위치 행이 없는 과거 호출은 최초 갱신 시 행을 보정 생성한다.
-            alertLocationsRepository.save(AlertLocations.builder()
-                    .emergencyAlert(emergencyAlert)
-                    .latitude(latitude)
-                    .longitude(longitude)
-                    .build());
+            // 위치 행이 없으면 최초 행 생성
+            alertLocationsRepository.save(
+                    AlertLocations.builder()
+                        .emergencyAlert(emergencyAlert)
+                        .latitude(latitude)
+                        .longitude(longitude)
+                        .build()
+            );
         }
 
         return new LocationUpdateResponse(alertId, latitude, longitude);

@@ -2,8 +2,6 @@ package com.gyeote.gyeote_api.domain.emergency.controller;
 
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyRequest;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyResponse;
-import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateRequest;
-import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateResponse;
 import com.gyeote.gyeote_api.domain.emergency.service.EmergencyService;
 import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
@@ -38,28 +36,6 @@ public class EmergencyController {
             @Valid @RequestBody EmergencyRequest request
     ) {
         return ApiResponse.success("도움 요청 전송 성공", emergencyService.createEmergency(principal.id(), request));
-    }
-
-    @Operation(
-            summary = "현재 위치 갱신",
-            description = """
-                    진행 중인 긴급 호출의 현재 위치를 갱신합니다.
-                    위치 이력을 누적하지 않고 기존 위치 행 하나를 계속 갱신합니다.
-                    호출을 생성한 사용자만 갱신할 수 있으며, 이미 종료된 호출은 409 Conflict를 반환합니다.
-                    기본 15초 간격으로 처리하며, 이보다 빠른 요청은 429 Too Many Requests를 반환합니다.
-                    이력을 누적하는 실시간 위치 전송은 STOMP /app/emergency-alerts/{alertId}/location을 사용합니다.
-                    """
-    )
-    @PatchMapping("/{alertId}/location")
-    public ApiResponse<LocationUpdateResponse> updateCurrentLocation(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long alertId,
-            @Valid @RequestBody LocationUpdateRequest request
-    ) {
-        return ApiResponse.success(
-                "현재 위치 갱신 성공",
-                emergencyService.updateCurrentLocation(principal.id(), alertId, request)
-        );
     }
 
     @Operation(

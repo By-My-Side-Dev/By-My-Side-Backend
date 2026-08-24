@@ -67,10 +67,9 @@ channels:
     title: 긴급 호출 위치 갱신
     description: |
       긴급 호출 발신자가 현재 좌표를 서버에 전송하는 STOMP `SEND` 목적지입니다.
-      실시간 전송이 허용된 호출의 발신자만 사용할 수 있으며, 그 외에는 `COMMON_FORBIDDEN` 오류를 반환합니다.
-      이력을 누적하지 않는 1회성 위치 갱신은 REST `PATCH /api/v1/emergency-alerts/{alertId}/location`을 사용합니다.
+      실시간과 1회성 호출 모두 해당 호출의 발신자만 사용할 수 있습니다.
+      실시간 호출은 위치 이력을 새 행으로 누적하고, 1회성 호출은 하나의 위치 행을 계속 갱신합니다.
       서버는 기본 15초의 최소 갱신 간격을 적용하며, 좌표를 소수점 이하 7자리로 반올림해 저장합니다.
-      호출마다 위치 이력을 새 행으로 누적합니다.
     servers:
       - $ref: "#/servers/local"
       - $ref: "#/servers/production"
