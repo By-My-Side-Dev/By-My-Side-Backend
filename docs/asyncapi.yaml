@@ -1,16 +1,23 @@
 asyncapi: 3.1.0
 info:
   title: 곁에 실시간 위치 WebSocket API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     긴급 호출 발신자의 위치를 실시간으로 전달하는 STOMP over WebSocket API입니다.
 
     연결 순서는 다음과 같습니다.
 
     1. `/ws`에 네이티브 WebSocket으로 연결합니다. SockJS는 지원하지 않습니다.
-    2. STOMP `CONNECT` 프레임의 native header에 `Authorization: Bearer {accessToken}`을 담아 인증합니다.
+    2. STOMP `CONNECT` 프레임의 native header에 `Authorization: Bearer {accessToken}`과 `heart-beat: 20000,20000`을 담습니다.
     3. 수신자는 `/topic/emergency-alerts/{alertId}/location`을 구독하고, 발신자는 `/app/emergency-alerts/{alertId}/location`으로 위치를 전송합니다.
     4. 발신자는 비즈니스 오류를 `/user/queue/errors`에서 수신할 수 있습니다.
+
+    서버와 클라이언트는 20초 간격으로 양방향 STOMP heartbeat를 교환합니다.
+    클라이언트가 heartbeat를 지원하고 `CONNECT` 프레임에서 송수신 주기를 제안해야 실제 주기가 협상됩니다.
+    약속된 시간 동안 heartbeat 또는 실제 메시지가 수신되지 않으면 상대방은 연결 실패로 판단하고 재연결해야 합니다.
+
+    WebSocket 연결은 heartbeat 교환 여부와 관계없이 연결 시점부터 최대 1일(24시간)간 유지됩니다.
+    24시간이 지나면 서버가 정상 종료 close frame을 전송하고 연결을 종료하므로, 계속 사용하려면 클라이언트가 다시 연결하고 필요한 채널을 재구독해야 합니다.
 
     `CONNECT` 인증 실패와 `SUBSCRIBE` 권한 실패는 STOMP `ERROR` 프레임으로 처리됩니다.
     `/topic` 또는 `/queue`로 직접 `SEND`하는 요청은 허용되지 않습니다.
@@ -28,10 +35,14 @@ servers:
     tags:
       - name: environment:local
     x-stomp-version: "1.2"
+    x-max-connection-duration: PT24H
     x-stomp-connect-headers:
       Authorization:
         description: REST 로그인에서 발급받은 access token
         example: Bearer eyJhbGciOiJIUzI1NiJ9...
+      heart-beat:
+        description: 클라이언트 송신 및 수신 heartbeat 희망 주기(밀리초)
+        example: 20000,20000
   production:
     host: gyeote.ai.kr
     pathname: /ws
@@ -41,10 +52,14 @@ servers:
     tags:
       - name: environment:production
     x-stomp-version: "1.2"
+    x-max-connection-duration: PT24H
     x-stomp-connect-headers:
       Authorization:
         description: REST 로그인에서 발급받은 access token
         example: Bearer eyJhbGciOiJIUzI1NiJ9...
+      heart-beat:
+        description: 클라이언트 송신 및 수신 heartbeat 희망 주기(밀리초)
+        example: 20000,20000
 
 channels:
   emergencyLocationUpdateCommand:
@@ -52,7 +67,8 @@ channels:
     title: 긴급 호출 위치 갱신
     description: |
       긴급 호출 발신자가 현재 좌표를 서버에 전송하는 STOMP `SEND` 목적지입니다.
-      실시간 위치 공유가 활성화되어 있고 종료되지 않은 호출의 발신자만 전송할 수 있습니다.
+      실시간과 1회성 호출 모두 해당 호출의 발신자만 사용할 수 있습니다.
+      실시간 호출은 위치 이력을 새 행으로 누적하고, 1회성 호출은 하나의 위치 행을 계속 갱신합니다.
       서버는 기본 15초의 최소 갱신 간격을 적용하며, 좌표를 소수점 이하 7자리로 반올림해 저장합니다.
     servers:
       - $ref: "#/servers/local"
@@ -69,7 +85,8 @@ channels:
     title: 긴급 호출 위치 구독
     description: |
       서버가 갱신된 좌표를 브로드캐스트하는 STOMP `SUBSCRIBE` 목적지입니다.
-      해당 긴급 호출의 유효한 수신자이면서 실시간 위치 수신을 허용한 사용자만 구독할 수 있습니다.
+      1회성 호출은 유효한 수신자가 구독할 수 있습니다.
+      실시간 호출은 유효한 수신자이면서 실시간 위치 수신을 허용한 사용자만 구독할 수 있습니다.
     servers:
       - $ref: "#/servers/local"
       - $ref: "#/servers/production"
@@ -132,12 +149,12 @@ components:
 
   messages:
     locationUpdateRequest:
-      name: RealtimeLocationUpdateRequest
+      name: LocationUpdateRequest
       title: 실시간 위치 갱신 요청
       summary: 발신자의 현재 위도와 경도
       contentType: application/json
       payload:
-        $ref: "#/components/schemas/realtimeLocationUpdateRequest"
+        $ref: "#/components/schemas/locationUpdateRequestPayload"
       examples:
         - name: 서울시청 인근 위치 갱신
           payload:
@@ -145,12 +162,12 @@ components:
             longitude: 126.9779692
 
     locationUpdated:
-      name: RealtimeLocationUpdateResponse
+      name: LocationUpdateResponse
       title: 실시간 위치 갱신 이벤트
       summary: 서버가 저장 후 브로드캐스트하는 정규화된 좌표
       contentType: application/json
       payload:
-        $ref: "#/components/schemas/realtimeLocationUpdateResponse"
+        $ref: "#/components/schemas/locationUpdateResponsePayload"
       examples:
         - name: 긴급 호출 42의 최신 위치
           payload:
@@ -176,9 +193,14 @@ components:
             code: COMMON_CONFLICT
             message: 이미 처리되었거나 중복된 요청입니다.
             data: null
+        - name: 실시간 전송이 허용되지 않은 호출
+          payload:
+            code: COMMON_FORBIDDEN
+            message: 접근 권한이 없습니다.
+            data: null
 
   schemas:
-    realtimeLocationUpdateRequest:
+    locationUpdateRequestPayload:
       type: object
       additionalProperties: false
       required:
@@ -200,7 +222,7 @@ components:
           examples:
             - 126.9779692
 
-    realtimeLocationUpdateResponse:
+    locationUpdateResponsePayload:
       type: object
       additionalProperties: false
       required:

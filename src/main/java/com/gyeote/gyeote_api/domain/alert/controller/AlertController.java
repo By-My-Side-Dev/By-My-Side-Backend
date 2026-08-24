@@ -3,23 +3,17 @@ package com.gyeote.gyeote_api.domain.alert.controller;
 import com.gyeote.gyeote_api.domain.alert.dto.AlertHistoryResponse;
 import com.gyeote.gyeote_api.domain.alert.dto.ReceivedAlertDetailResponse;
 import com.gyeote.gyeote_api.domain.alert.dto.ReceivedAlertListResponse;
-import com.gyeote.gyeote_api.domain.alert.dto.ReceivedAlertReadResponse;
 import com.gyeote.gyeote_api.domain.alert.service.AlertService;
 import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -36,14 +30,12 @@ public class AlertController {
     @GetMapping("/received")
     @Operation(
             summary = "수신 알림 목록 조회",
-            description = "내가 받은 24시간 내 긴급 알림 목록을 최신순으로 페이지 조회합니다."
+            description = "내가 받은 24시간 내 긴급 알림 목록을 최신순으로 조회합니다."
     )
     public ApiResponse<ReceivedAlertListResponse> getReceivedAlerts(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
-        return ApiResponse.success("수신 알림 목록 조회 성공", alertService.getReceivedAlerts(principal.id(), PageRequest.of(page, size)));
+        return ApiResponse.success("수신 알림 목록 조회 성공", alertService.getReceivedAlerts(principal.id()));
     }
 
     @GetMapping("/received/{alertId}")
@@ -56,18 +48,6 @@ public class AlertController {
             @PathVariable Long alertId
     ) {
         return ApiResponse.success("수신 알림 상세를 조회했습니다.", alertService.getReceivedAlert(principal.id(), alertId));
-    }
-
-    @PatchMapping("/received/{alertId}/read")
-    @Operation(
-            summary = "수신 알림 읽음 처리",
-            description = "목록에서 받은 alertId로 내가 받은 활성 알림을 읽음 상태로 변경합니다."
-    )
-    public ApiResponse<ReceivedAlertReadResponse> readReceivedAlert(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long alertId
-    ) {
-        return ApiResponse.success("수신 알림 읽음 처리 성공", alertService.readReceivedAlert(principal.id(), alertId));
     }
 
     @GetMapping("/history")

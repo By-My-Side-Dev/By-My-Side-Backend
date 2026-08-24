@@ -6,7 +6,11 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 
-public record RealtimeLocationUpdateRequest(
+/**
+ * 위치 갱신 요청.
+ * WebSocket 실시간 전송과 REST 단건 갱신에서 함께 사용한다.
+ */
+public record LocationUpdateRequest(
         @NotNull
         @DecimalMin("-90")
         @DecimalMax("90")

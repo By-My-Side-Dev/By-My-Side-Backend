@@ -38,6 +38,14 @@ emergency:
   # 실시간 위치 WebSocket 갱신의 최소 간격. 환경변수로 운영 중 조정할 수 있다.
   location-update-interval-seconds: ${EMERGENCY_LOCATION_UPDATE_INTERVAL_SECONDS:15}
 
+websocket:
+  # WebSocket 연결은 생성 시점부터 최대 1일간 유지한다.
+  max-session-duration: ${WEBSOCKET_MAX_SESSION_DURATION:1d}
+  heartbeat:
+    # Nginx의 60초 유휴 타임아웃보다 짧은 주기로 양방향 생존 신호를 교환한다.
+    server-to-client-interval-ms: ${WEBSOCKET_HEARTBEAT_SERVER_TO_CLIENT_INTERVAL_MS:20000}
+    client-to-server-interval-ms: ${WEBSOCKET_HEARTBEAT_CLIENT_TO_SERVER_INTERVAL_MS:20000}
+
 management:
   endpoints:
     web:

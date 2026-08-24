@@ -1,11 +1,7 @@
 package com.gyeote.gyeote_api.domain.alert.repository;
 
 import com.gyeote.gyeote_api.domain.alert.entity.AlertRecipient;
-import jakarta.persistence.LockModeType;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,35 +12,6 @@ import java.util.Optional;
 
 public interface AlertRecipientRepository extends JpaRepository<AlertRecipient, Long> {
     boolean existsByEmergencyAlert_Id(Long alertId);
-    @Query(
-            value = """
-                    select recipient
-                    from AlertRecipient recipient
-                    join fetch recipient.emergencyAlert alert
-                    join fetch alert.sender sender
-                    where recipient.receiver.id = :receiverId
-                      and recipient.archivedAt is null
-                      and recipient.expiresAt > :now
-                      and sender.deletedAt is null
-                    order by recipient.createdAt desc
-                    """,
-            countQuery = """
-                    select count(recipient)
-                    from AlertRecipient recipient
-                    join recipient.emergencyAlert alert
-                    join alert.sender sender
-                    where recipient.receiver.id = :receiverId
-                      and recipient.archivedAt is null
-                      and recipient.expiresAt > :now
-                      and sender.deletedAt is null
-                    """
-    )
-    Page<AlertRecipient> findActivePageByReceiverId(
-            @Param("receiverId") Long receiverId,
-            @Param("now") LocalDateTime now,
-            Pageable pageable
-    );
-
     /**
      * 내가 받은 유효한(만료·보관 전) 긴급 알림 수신 목록을 발신자·호출 정보와 함께 조회한다.
      */
@@ -85,20 +52,6 @@ public interface AlertRecipientRepository extends JpaRepository<AlertRecipient, 
               and recipient.receiver.id = :receiverId
             """)
     Optional<AlertRecipient> findWithAlertByAlertIdAndReceiverId(
-            @Param("alertId") Long alertId,
-            @Param("receiverId") Long receiverId
-    );
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
-            select recipient
-            from AlertRecipient recipient
-            join fetch recipient.emergencyAlert alert
-            join fetch alert.sender
-            where alert.id = :alertId
-              and recipient.receiver.id = :receiverId
-            """)
-    Optional<AlertRecipient> findWithAlertByAlertIdAndReceiverIdForUpdate(
             @Param("alertId") Long alertId,
             @Param("receiverId") Long receiverId
     );
@@ -157,18 +110,22 @@ public interface AlertRecipientRepository extends JpaRepository<AlertRecipient, 
               and recipient.receiver.id = :receiverId
               and recipient.archivedAt is null
               and recipient.expiresAt > :now
-              and recipient.realtimeStoppedAt is null
-              and recipient.emergencyAlert.isRealtime = true
-              and recipient.emergencyAlert.endedAt is null
-              and exists (
-                    select contact.id
-                    from Contact contact
-                    where contact.user.id = :receiverId
-                      and contact.contactUser.id = recipient.emergencyAlert.sender.id
-                      and contact.receiveRealtime = true
+              and (
+                    recipient.emergencyAlert.isRealtime = false
+                    or (
+                        recipient.realtimeStoppedAt is null
+                        and recipient.emergencyAlert.endedAt is null
+                        and exists (
+                            select contact.id
+                            from Contact contact
+                            where contact.user.id = :receiverId
+                              and contact.contactUser.id = recipient.emergencyAlert.sender.id
+                              and contact.receiveRealtime = true
+                        )
+                    )
               )
             """)
-    boolean existsActiveRealtimeSubscription(
+    boolean existsActiveLocationSubscription(
             @Param("alertId") Long alertId,
             @Param("receiverId") Long receiverId,
             @Param("now") LocalDateTime now

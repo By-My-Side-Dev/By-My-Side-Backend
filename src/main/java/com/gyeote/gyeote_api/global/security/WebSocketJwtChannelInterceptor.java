@@ -92,7 +92,7 @@ public class WebSocketJwtChannelInterceptor implements ChannelInterceptor {
         }
 
         Long alertId = Long.parseLong(matcher.group(1));
-        if (!alertRecipientRepository.existsActiveRealtimeSubscription(
+        if (!alertRecipientRepository.existsActiveLocationSubscription(
                 alertId,
                 principal.id(),
                 LocalDateTime.now()

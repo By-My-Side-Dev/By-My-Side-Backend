@@ -4,8 +4,6 @@ import com.gyeote.gyeote_api.domain.alert.dto.AlertHistoryResponse;
 import com.gyeote.gyeote_api.domain.alert.dto.ReceivedAlertDetailResponse;
 import com.gyeote.gyeote_api.domain.alert.dto.ReceivedAlertListItemResponse;
 import com.gyeote.gyeote_api.domain.alert.dto.ReceivedAlertListResponse;
-import com.gyeote.gyeote_api.domain.alert.dto.ReceivedAlertPageResponse;
-import com.gyeote.gyeote_api.domain.alert.dto.ReceivedAlertReadResponse;
 import com.gyeote.gyeote_api.domain.alert.entity.AlertRecipient;
 import com.gyeote.gyeote_api.domain.alert.exception.AlertErrorCode;
 import com.gyeote.gyeote_api.domain.alert.repository.AlertRecipientRepository;
@@ -17,7 +15,6 @@ import com.gyeote.gyeote_api.domain.emergency.repository.AlertLocationsRepositor
 import com.gyeote.gyeote_api.domain.user.entity.User;
 import com.gyeote.gyeote_api.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,56 +31,28 @@ public class AlertService {
     private final AlertLocationsRepository alertLocationsRepository;
     private final ContactRepository contactRepository;
 
-    public ReceivedAlertListResponse getReceivedAlerts(Long userId, Pageable pageable) {
+    public ReceivedAlertListResponse getReceivedAlerts(Long userId) {
         LocalDateTime now = LocalDateTime.now();
-        var recipientPage = alertRecipientRepository.findActivePageByReceiverId(userId, now, pageable);
-        List<ReceivedAlertListItemResponse> alerts = recipientPage.getContent().stream()
+        List<ReceivedAlertListItemResponse> alerts = alertRecipientRepository
+                .findActiveByReceiverId(userId, now).stream()
                 .map(this::toListItem)
                 .toList();
 
-        return new ReceivedAlertListResponse(
-                alerts,
-                ReceivedAlertPageResponse.from(recipientPage)
-        );
+        return new ReceivedAlertListResponse(alerts);
     }
 
     public ReceivedAlertDetailResponse getReceivedAlert(Long userId, Long alertId) {
-        AlertRecipient recipient = requireRecipient(userId, alertId, false);
+        AlertRecipient recipient = requireRecipient(userId, alertId);
         EmergencyAlerts alert = recipient.getEmergencyAlert();
         Contact contact = contactRepository
                 .findByUser_IdAndContactUser_Id(userId, alert.getSender().getId())
                 .orElse(null);
         boolean realtime = isRealtimeTracking(recipient, contact, LocalDateTime.now());
-        AlertLocations latestLocation = realtime
-                ? alertLocationsRepository.findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(alert.getId())
-                    .orElse(null)
-                : null;
+        AlertLocations latestLocation = alertLocationsRepository
+                .findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(alert.getId())
+                .orElse(null);
 
         return toDetail(recipient, latestLocation, realtime);
-    }
-
-    @Transactional
-    public ReceivedAlertReadResponse readReceivedAlert(Long userId, Long alertId) {
-        AlertRecipient recipient = requireRecipient(userId, alertId, true);
-        LocalDateTime now = LocalDateTime.now();
-
-        if (recipient.getArchivedAt() != null) {
-            throw error(AlertErrorCode.ALERT_ALREADY_ARCHIVED);
-        }
-        if (!recipient.getExpiresAt().isAfter(now)) {
-            throw error(AlertErrorCode.ALERT_ALREADY_EXPIRED);
-        }
-        if (recipient.isRead()) {
-            throw error(AlertErrorCode.ALERT_ALREADY_READ);
-        }
-
-        recipient.read(now);
-
-        return new ReceivedAlertReadResponse(
-                alertId,
-                recipient.isRead(),
-                recipient.getReadAt()
-        );
     }
 
     @Transactional
@@ -95,10 +64,9 @@ public class AlertService {
                 .toList();
     }
 
-    private AlertRecipient requireRecipient(Long userId, Long alertId, boolean forUpdate) {
-        AlertRecipient recipient = (forUpdate
-                ? alertRecipientRepository.findWithAlertByAlertIdAndReceiverIdForUpdate(alertId, userId)
-                : alertRecipientRepository.findWithAlertByAlertIdAndReceiverId(alertId, userId))
+    private AlertRecipient requireRecipient(Long userId, Long alertId) {
+        AlertRecipient recipient = alertRecipientRepository
+                .findWithAlertByAlertIdAndReceiverId(alertId, userId)
                 .orElseThrow(() -> error(AlertErrorCode.ALERT_RECIPIENT_NOT_FOUND));
         return recipient;
     }
@@ -112,7 +80,6 @@ public class AlertService {
                 sender.getProfileImageUrl(),
                 alert.getAddress(),
                 alert.getCreatedAt(),
-                recipient.isRead(),
                 alert.isRealtime(),
                 recipient.getExpiresAt()
         );
@@ -131,7 +98,7 @@ public class AlertService {
 
         return new ReceivedAlertDetailResponse(
                 recipient.getId(), alert.getId(), sender.getId(), sender.getName(), sender.getProfileImageUrl(),
-                latitude, longitude, alert.getAddress(), realtime, recipient.isRead(), recipient.getReadAt(),
+                latitude, longitude, alert.getAddress(), realtime,
                 recipient.getRealtimeStoppedAt(), alert.getEndedAt(), recipient.getCreatedAt(),
                 recipient.getExpiresAt(), locationUpdatedAt
         );
@@ -142,7 +109,7 @@ public class AlertService {
         User sender = alert.getSender();
         return new AlertHistoryResponse(
                 recipient.getId(), alert.getId(), sender.getId(), sender.getName(), sender.getProfileImageUrl(),
-                alert.getAddress(), recipient.isRead(), recipient.getReadAt(), recipient.getCreatedAt(),
+                alert.getAddress(), recipient.getCreatedAt(),
                 recipient.getExpiresAt(), recipient.getArchivedAt()
         );
     }

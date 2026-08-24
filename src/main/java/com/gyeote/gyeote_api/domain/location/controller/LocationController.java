@@ -1,6 +1,5 @@
 package com.gyeote.gyeote_api.domain.location.controller;
 
-import com.gyeote.gyeote_api.domain.location.dto.AlertLocationResponse;
 import com.gyeote.gyeote_api.domain.location.dto.AlertMapMarkerResponse;
 import com.gyeote.gyeote_api.domain.location.dto.AlertPathResponse;
 import com.gyeote.gyeote_api.domain.location.service.LocationService;
@@ -40,24 +39,6 @@ public class LocationController {
     ) {
         return ApiResponse.success("지도 마커 목록을 조회했습니다.",
                 locationService.getReceivedAlertMapMarkers(principal.id()));
-    }
-
-    @Operation(
-            summary = "특정 알림 위치 조회",
-            description = """
-                    전체 지도 마커에서 선택한 alertId로 해당 지인의 위치 상세를 조회합니다.
-                    본인이 받은 알림이 아니면 403 Forbidden을 반환합니다.
-                    실시간 공유가 진행 중이면 최신 좌표를, 종료됐거나 실시간 호출이 아니면
-                    호출 시점 좌표를 반환합니다.
-                    """
-    )
-    @GetMapping("/received-alerts/{alertId}")
-    public ApiResponse<AlertLocationResponse> getReceivedAlertLocation(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long alertId
-    ) {
-        return ApiResponse.success("알림 위치를 조회했습니다.",
-                locationService.getReceivedAlertLocation(principal.id(), alertId));
     }
 
     /**
