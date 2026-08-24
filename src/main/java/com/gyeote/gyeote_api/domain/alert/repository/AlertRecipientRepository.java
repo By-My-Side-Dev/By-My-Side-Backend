@@ -110,18 +110,22 @@ public interface AlertRecipientRepository extends JpaRepository<AlertRecipient, 
               and recipient.receiver.id = :receiverId
               and recipient.archivedAt is null
               and recipient.expiresAt > :now
-              and recipient.realtimeStoppedAt is null
-              and recipient.emergencyAlert.isRealtime = true
-              and recipient.emergencyAlert.endedAt is null
-              and exists (
-                    select contact.id
-                    from Contact contact
-                    where contact.user.id = :receiverId
-                      and contact.contactUser.id = recipient.emergencyAlert.sender.id
-                      and contact.receiveRealtime = true
+              and (
+                    recipient.emergencyAlert.isRealtime = false
+                    or (
+                        recipient.realtimeStoppedAt is null
+                        and recipient.emergencyAlert.endedAt is null
+                        and exists (
+                            select contact.id
+                            from Contact contact
+                            where contact.user.id = :receiverId
+                              and contact.contactUser.id = recipient.emergencyAlert.sender.id
+                              and contact.receiveRealtime = true
+                        )
+                    )
               )
             """)
-    boolean existsActiveRealtimeSubscription(
+    boolean existsActiveLocationSubscription(
             @Param("alertId") Long alertId,
             @Param("receiverId") Long receiverId,
             @Param("now") LocalDateTime now

@@ -48,10 +48,9 @@ public class AlertService {
                 .findByUser_IdAndContactUser_Id(userId, alert.getSender().getId())
                 .orElse(null);
         boolean realtime = isRealtimeTracking(recipient, contact, LocalDateTime.now());
-        AlertLocations latestLocation = realtime
-                ? alertLocationsRepository.findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(alert.getId())
-                    .orElse(null)
-                : null;
+        AlertLocations latestLocation = alertLocationsRepository
+                .findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(alert.getId())
+                .orElse(null);
 
         return toDetail(recipient, latestLocation, realtime);
     }

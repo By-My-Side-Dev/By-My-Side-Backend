@@ -7,8 +7,8 @@ import com.gyeote.gyeote_api.domain.contact.entity.Contact;
 import com.gyeote.gyeote_api.domain.contact.repository.ContactRepository;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyRequest;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyResponse;
-import com.gyeote.gyeote_api.domain.emergency.dto.RealtimeLocationUpdateRequest;
-import com.gyeote.gyeote_api.domain.emergency.dto.RealtimeLocationUpdateResponse;
+import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateRequest;
+import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateResponse;
 import com.gyeote.gyeote_api.domain.emergency.entity.AlertLocations;
 import com.gyeote.gyeote_api.domain.emergency.entity.EmergencyAlerts;
 import com.gyeote.gyeote_api.domain.emergency.geocoding.ReverseGeocodingService;
@@ -28,6 +28,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -92,64 +93,95 @@ public class EmergencyService {
                 .toList();
         alertRecipientRepository.saveAll(recipients);
 
-        if (emergencyAlert.isRealtime()) {
-            AlertLocations initialLocation = AlertLocations.builder()
-                    .emergencyAlert(emergencyAlert)
-                    .latitude(latitude)
-                    .longitude(longitude)
-                    .build();
+        AlertLocations initialLocation = AlertLocations.builder()
+                .emergencyAlert(emergencyAlert)
+                .latitude(latitude)
+                .longitude(longitude)
+                .build();
 
-            alertLocationsRepository.save(initialLocation);
-        }
+        alertLocationsRepository.save(initialLocation);
 
         return EmergencyResponse.from(emergencyAlert.getId());
     }
 
     /**
-     * 실시간 위치가 활성화된 도움 요청의 위치 이력을 새 행으로 저장한다.
+     * WebSocket으로 긴급 호출의 위치를 갱신한다.
+     * 실시간 호출은 위치 이력을 새 행으로 누적하고,
+     * 1회성 호출은 기존 위치 행 하나를 계속 갱신한다.
      * @param userId 유저 아이디
      * @param alertId 알림 아이디
      * @param request 현재 위치를 받는다.
-     * @return 실시간 위치를 데이터베이스에 저장한다.
+     * @return 갱신된 좌표
      */
     @Transactional
-    public RealtimeLocationUpdateResponse updateRealtimeLocation(
+    public LocationUpdateResponse updateLocation(
             Long userId,
             Long alertId,
-            RealtimeLocationUpdateRequest request
+            LocationUpdateRequest request
     ) {
+        EmergencyAlerts emergencyAlert = findUpdatableAlert(userId, alertId);
+
+        LocalDateTime now = LocalDateTime.now();
+        Optional<AlertLocations> latestLocation = verifyUpdateInterval(alertId, now);
+
+        BigDecimal latitude = normalizeCoordinate(request.latitude());
+        BigDecimal longitude = normalizeCoordinate(request.longitude());
+
+        // [실시간 위치 전송] isRealtime 버튼 설정 방식
+        if (emergencyAlert.isRealtime()) {
+            // 새 행 추가
+            alertLocationsRepository.save(
+                    AlertLocations.builder()
+                        .emergencyAlert(emergencyAlert)
+                        .latitude(latitude)
+                        .longitude(longitude)
+                        .build()
+            );
+        } else if (latestLocation.isPresent()) {
+            // 기존의 한 행의 좌표 업데이트
+            latestLocation.get().updateCoordinates(latitude, longitude, now);
+        } else {
+            // 위치 행이 없으면 최초 행 생성
+            alertLocationsRepository.save(
+                    AlertLocations.builder()
+                        .emergencyAlert(emergencyAlert)
+                        .latitude(latitude)
+                        .longitude(longitude)
+                        .build()
+            );
+        }
+
+        return new LocationUpdateResponse(alertId, latitude, longitude);
+    }
+
+    /**
+     * 위치를 갱신할 수 있는 본인 소유의 진행 중인 호출을 조회한다.
+     */
+    private EmergencyAlerts findUpdatableAlert(Long userId, Long alertId) {
         EmergencyAlerts emergencyAlert = emergencyAlertsRepository.findByIdAndSenderIdForUpdate(alertId, userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
-
-        if (!emergencyAlert.isRealtime()) {
-            throw new BusinessException(CommonErrorCode.COMMON_FORBIDDEN);
-        }
 
         if (emergencyAlert.getEndedAt() != null) {
             throw new BusinessException(CommonErrorCode.COMMON_CONFLICT);
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        alertLocationsRepository.findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(alertId)
-                .filter(latest -> latest.getUpdatedAt()
+        return emergencyAlert;
+    }
+
+    /**
+     * 최근 갱신 이후 설정된 간격이 지났는지 확인하고 최신 위치를 반환한다.
+     */
+    private Optional<AlertLocations> verifyUpdateInterval(Long alertId, LocalDateTime now) {
+        Optional<AlertLocations> latestLocation = alertLocationsRepository.findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(alertId);
+
+        latestLocation.filter(latest -> latest.getUpdatedAt()
                         .plusSeconds(locationUpdateIntervalSeconds)
                         .isAfter(now))
                 .ifPresent(latest -> {
                     throw new BusinessException(CommonErrorCode.COMMON_TOO_MANY_REQUESTS);
                 });
 
-        BigDecimal latitude = normalizeCoordinate(request.latitude());
-        BigDecimal longitude = normalizeCoordinate(request.longitude());
-
-        AlertLocations locationHistory = AlertLocations.builder()
-                .emergencyAlert(emergencyAlert)
-                .latitude(latitude)
-                .longitude(longitude)
-                .build();
-
-        alertLocationsRepository.save(locationHistory);
-
-        return new RealtimeLocationUpdateResponse(alertId, latitude, longitude);
+        return latestLocation;
     }
 
     /**
