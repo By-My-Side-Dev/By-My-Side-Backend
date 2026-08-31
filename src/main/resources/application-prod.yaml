@@ -1,7 +1,4 @@
 spring:
-  config:
-    activate:
-      on-profile: prod
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${DB_USERNAME}
@@ -12,6 +9,10 @@ spring:
       # TODO: 정식 오픈(실사용자 데이터 발생) 시점에 validate로 전환 + Flyway 등 마이그레이션 도구 도입 필요.
       # 그 전까지는 스키마가 계속 바뀌는 개발 단계라 update로 자동 반영.
       ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: false # 불필요한 SQL 포멧을 제거
+    show-sql: false # 운영 로그에 불필요한 SQL 제거
   data:
     redis:
       host: ${REDIS_IP}
