@@ -16,5 +16,10 @@ spring:
       host: ${REDIS_IP}
       port: ${REDIS_PORT}
 
+azure:
+  storage:
+    account-name: ${AZURE_STORAGE_ACCOUNT_NAME}
+    container-name: ${AZURE_STORAGE_CONTAINER_NAME}
+
 websocket:
   allowed-origin-patterns: http://localhost:*
