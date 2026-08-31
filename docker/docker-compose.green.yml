@@ -9,6 +9,7 @@ services:
       - /home/azureuser/app/.env
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      TZ: "Asia/Seoul"
     ports:
       - "8081:8080"
     networks:
