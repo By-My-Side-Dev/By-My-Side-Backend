@@ -49,7 +49,7 @@ public class User {
     @Column(name = "provider_uid")
     private String providerUid;
 
-    @Column(name = "profile_image_url")
+    @Column(name = "profile_image_key")
     private String profileImageKey;
 
     @Column(name = "realtime_location_enabled", nullable = false)

@@ -18,6 +18,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.tika.Tika;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -130,16 +132,17 @@ public class UserService {
     public void updateProfileImage(Long userId, ProfileImageRequest request) {
         User user = userRepository.findUserById(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
+        String previousObjectKey = user.getProfileImageKey();
 
         MultipartFile image = request.image();
         String contentType = validateAndGetContentType(image);
         String extension = extensionFrom(contentType);
-        String objectKey = createProfileImageObjectKey(user.getUuid(), extension);
+        String newObjectKey = createProfileImageObjectKey(user.getUuid(), extension);
 
         try (InputStream contentStream = image.getInputStream()) {
             objectStorage.upload(
                     ObjectUploadRequest.from(
-                            objectKey,
+                            newObjectKey,
                             contentStream,
                             contentType
                     )
@@ -149,7 +152,8 @@ public class UserService {
             throw new BusinessException(UserErrorCode.USER_PROFILE_IMAGE_READ_FAILED);
         }
 
-        user.updateProfileImageKey(objectKey);
+        registerProfileImageCleanup(previousObjectKey, newObjectKey);
+        user.updateProfileImageKey(newObjectKey);
     }
 
     /**
@@ -236,6 +240,51 @@ public class UserService {
                 UUID.randomUUID(),
                 extension
         );
+    }
+
+    /**
+     * 프로필 이미지 변경 트랜잭션의 결과에 따라 기존 이미지 또는 신규 이미지를 정리한다.
+     * 트랜잭션이 커밋되면 기존 이미지를 삭제하고, 롤백되면 새로 업로드한 이미지를 삭제한다.
+     *
+     * @param previousObjectKey 기존 프로필 이미지 객체 키
+     * @param newObjectKey 새로 업로드한 프로필 이미지 객체 키
+     */
+    private void registerProfileImageCleanup(String previousObjectKey, String newObjectKey) {
+        try {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            if (previousObjectKey != null) {
+                                deleteProfileImageSafely(previousObjectKey);
+                            }
+                        }
+
+                        @Override
+                        public void afterCompletion(int status) {
+                            if (status != STATUS_COMMITTED) {
+                                deleteProfileImageSafely(newObjectKey);
+                            }
+                        }
+                    }
+            );
+        } catch (RuntimeException e) {
+            deleteProfileImageSafely(newObjectKey);
+            throw e;
+        }
+    }
+
+    /**
+     * 프로필 이미지 삭제 실패가 완료된 DB 트랜잭션에 영향을 주지 않도록 예외를 기록한다.
+     *
+     * @param objectKey 삭제할 프로필 이미지 객체 키
+     */
+    private void deleteProfileImageSafely(String objectKey) {
+        try {
+            objectStorage.delete(objectKey);
+        } catch (RuntimeException e) {
+            log.error("프로필 이미지 삭제 실패. objectKey={}", objectKey, e);
+        }
     }
 
 }
