@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -51,6 +52,10 @@ public class User {
 
     @Column(name = "profile_image_key")
     private String profileImageKey;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     @Column(name = "realtime_location_enabled", nullable = false)
     private boolean realtimeLocationEnabled = true;
