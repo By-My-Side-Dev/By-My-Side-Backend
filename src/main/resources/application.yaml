@@ -5,6 +5,10 @@ spring:
     default: local
   jpa:
     open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 11MB
+      max-request-size: 11MB
 
 jwt:
   secret: ${JWT_SECRET}
