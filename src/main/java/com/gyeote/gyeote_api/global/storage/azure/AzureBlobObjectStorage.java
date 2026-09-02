@@ -22,7 +22,8 @@ import java.time.OffsetDateTime;
 @RequiredArgsConstructor
 public class AzureBlobObjectStorage implements ObjectStorage {
 
-    private static final Duration MAX_USER_DELEGATION_TTL = Duration.ofDays(7);
+    private static final Duration SAS_URL_TTL = Duration.ofHours(1);
+    private static final Duration SAS_CLOCK_SKEW = Duration.ofMinutes(5);
 
     private final BlobServiceClient blobServiceClient;
     private final BlobContainerClient blobContainerClient;
@@ -43,12 +44,10 @@ public class AzureBlobObjectStorage implements ObjectStorage {
     }
 
     @Override
-    public URI getUrl(String objectKey, Duration ttl) {
-        validateTtl(ttl);
-
+    public URI getUrl(String objectKey) {
         BlobClient blobClient = blobContainerClient.getBlobClient(objectKey);
-        OffsetDateTime startTime = OffsetDateTime.now().minusMinutes(5);
-        OffsetDateTime expiryTime = OffsetDateTime.now().plus(ttl);
+        OffsetDateTime startTime = OffsetDateTime.now().minus(SAS_CLOCK_SKEW);
+        OffsetDateTime expiryTime = OffsetDateTime.now().plus(SAS_URL_TTL);
 
         UserDelegationKey delegationKey = blobServiceClient.getUserDelegationKey(
                 startTime,
@@ -68,14 +67,5 @@ public class AzureBlobObjectStorage implements ObjectStorage {
         );
 
         return URI.create(blobClient.getBlobUrl() + "?" + sasToken);
-    }
-
-    private void validateTtl(Duration ttl) {
-        if (ttl == null || ttl.isZero() || ttl.isNegative()) {
-            throw new IllegalArgumentException("SAS URL TTL must be positive.");
-        }
-        if (ttl.compareTo(MAX_USER_DELEGATION_TTL) > 0) {
-            throw new IllegalArgumentException("SAS URL TTL must not exceed 7 days.");
-        }
     }
 }

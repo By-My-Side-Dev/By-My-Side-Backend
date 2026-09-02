@@ -7,4 +7,15 @@ public record ObjectUploadRequest(
         InputStream contentStream,
         String contentType
 ) {
+    public static ObjectUploadRequest from(
+            String objectKey,
+            InputStream contentStream,
+            String contentType
+    ) {
+        return new ObjectUploadRequest(
+                objectKey,
+                contentStream,
+                contentType
+        );
+    }
 }

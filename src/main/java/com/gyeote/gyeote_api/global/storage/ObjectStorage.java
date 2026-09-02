@@ -1,7 +1,6 @@
 package com.gyeote.gyeote_api.global.storage;
 
 import java.net.URI;
-import java.time.Duration;
 
 public interface ObjectStorage{
 
@@ -20,12 +19,11 @@ public interface ObjectStorage{
     void delete(String objectKey);
 
     /**
-     * 지정한 시간 동안 객체에 접근할 수 있는 URL을 생성한다.
+     * 객체에 접근할 수 있는 URL을 생성한다.
+     * URL의 유효 기간은 구현체 내부 정책을 따른다.
      *
      * @param objectKey URL을 생성할 객체를 식별하는 키
-     * @param ttl URL의 유효 기간
-     * @return 유효 기간이 설정된 객체 접근 URL
-     * @throws IllegalArgumentException 유효 기간이 허용되지 않는 값인 경우
+     * @return 객체 접근 URL
      */
-    URI getUrl(String objectKey, Duration ttl);
+    URI getUrl(String objectKey);
 }
