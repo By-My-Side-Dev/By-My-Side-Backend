@@ -50,8 +50,21 @@ public class UserController {
     public ApiResponse<UserProfileUpdateResponse> updateProfile(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody UserProfileUpdateRequest request
-            ) {
+    ) {
         return ApiResponse.success("내 정보 업데이트를 성공했습니다.", userService.updateProfile(principal.id(), request));
+    }
+
+    @Operation(
+            summary = "프로필 이미지 정보 수정",
+            description = "내 프로필에 이미지 정보를 수정합니다."
+    )
+    @PatchMapping("/profile-image")
+    public ApiResponse<Void> updateProfileImage(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @ModelAttribute ProfileImageRequest request
+    ){
+        userService.updateProfileImage(principal.id(), request);
+        return ApiResponse.success("내 프로필 업데이트를 성공했습니다.");
     }
 
     @Operation(
@@ -63,7 +76,7 @@ public class UserController {
         @AuthenticationPrincipal UserPrincipal principal
     ) {
         userService.deleteUser(principal.id());
-        return ApiResponse.success("회원 탈퇴를 성공했습니다.", null);
+        return ApiResponse.success("회원 탈퇴를 성공했습니다.");
     }
 
 }
