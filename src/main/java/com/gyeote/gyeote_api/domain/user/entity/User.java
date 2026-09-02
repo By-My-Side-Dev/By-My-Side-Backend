@@ -50,7 +50,7 @@ public class User {
     private String providerUid;
 
     @Column(name = "profile_image_url")
-    private String profileImageUrl;
+    private String profileImageKey;
 
     @Column(name = "realtime_location_enabled", nullable = false)
     private boolean realtimeLocationEnabled = true;
@@ -89,7 +89,7 @@ public class User {
 
     @Builder
     private User(String name, String loginId, String passwordHash,
-                 String provider, String providerUid, String profileImageUrl,
+                 String provider, String providerUid, String profileImageKey,
                  boolean agreeLocation, boolean agreePrivacy,
                  boolean agreeTerms, boolean agreeThirdParty,
                  UserPlan plan) {
@@ -98,7 +98,7 @@ public class User {
         this.passwordHash = passwordHash;
         this.provider = provider;
         this.providerUid = providerUid;
-        this.profileImageUrl = profileImageUrl;
+        this.profileImageKey = profileImageKey;
         this.agreeLocation = agreeLocation;
         this.agreePrivacy = agreePrivacy;
         this.agreeTerms = agreeTerms;
@@ -144,6 +144,10 @@ public class User {
 
     public void updateUserName(String name) {
         this.name = name;
+    }
+
+    public void updateProfileImageKey(String profileImageKey) {
+        this.profileImageKey = profileImageKey;
     }
 
     public void softDeleteUser(LocalDateTime userSoftDeleteAt) {
