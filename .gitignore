@@ -58,3 +58,7 @@ Thumbs.db
 
 ### Local test artifacts ###
 *-access-token.txt
+/src/main/.azure/default/connections.resources.xml
+/src/main/.azure/default/deployment.targets.xml
+/src/main/.azure/profiles.xml
+/src/main/.azure/default/connections.xml

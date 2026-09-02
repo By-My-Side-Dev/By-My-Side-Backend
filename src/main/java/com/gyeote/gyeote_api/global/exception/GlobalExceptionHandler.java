@@ -2,6 +2,7 @@ package com.gyeote.gyeote_api.global.exception;
 
 import com.gyeote.gyeote_api.domain.auth.exception.AuthErrorCode;
 import com.gyeote.gyeote_api.domain.auth.exception.SignupErrorCode;
+import com.gyeote.gyeote_api.domain.user.exception.UserErrorCode;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -115,6 +116,10 @@ public class GlobalExceptionHandler {
         }
         try {
             return SignupErrorCode.valueOf(codeName);
+        } catch (IllegalArgumentException ignored) {
+        }
+        try {
+            return UserErrorCode.valueOf(codeName);
         } catch (IllegalArgumentException ignored) {
         }
         return CommonErrorCode.COMMON_VALIDATION_FAILED;

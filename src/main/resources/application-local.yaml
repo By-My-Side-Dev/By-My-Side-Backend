@@ -1,16 +1,25 @@
 spring:
-  config:
-    activate:
-      on-profile: local
   datasource:
     url: jdbc:mysql://localhost:3306/gyeote?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: root
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
   data:
     redis:
       host: ${REDIS_IP}
       port: ${REDIS_PORT}
+
+azure:
+  storage:
+    account-name: ${AZURE_STORAGE_ACCOUNT_NAME}
+    container-name: ${AZURE_STORAGE_CONTAINER_NAME}
 
 websocket:
   allowed-origin-patterns: http://localhost:*
