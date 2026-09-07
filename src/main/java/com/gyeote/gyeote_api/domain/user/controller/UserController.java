@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -56,13 +57,13 @@ public class UserController {
 
     @Operation(
             summary = "프로필 이미지 정보 수정",
-            description = "내 프로필에 이미지 정보를 수정합니다."
+            description = "내 프로필 이미지를 수정합니다."
     )
-    @PatchMapping("/profile-image")
+    @PatchMapping(value = "/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<Void> updateProfileImage(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @ModelAttribute ProfileImageRequest request
-    ){
+    ) {
         userService.updateProfileImage(principal.id(), request);
         return ApiResponse.success("내 프로필 업데이트를 성공했습니다.");
     }
