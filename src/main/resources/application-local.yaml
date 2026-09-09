@@ -1,7 +1,7 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/gyeote?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: root
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
@@ -22,4 +22,4 @@ azure:
     container-name: ${AZURE_STORAGE_CONTAINER_NAME}
 
 websocket:
-  allowed-origin-patterns: http://localhost:*
+  allowed-origin-patterns: ${WEBSOCKET_ALLOWED_ORIGIN_PATTERNS}
