@@ -28,7 +28,7 @@ fcm:
   max-attempts: 5
   batch-size: 100
   scheduler:
-    fixed-delay-ms: 5000
+    fixed-delay-ms: 15000
   project-id: ${FIREBASE_PROJECT_ID}
 
 social:
