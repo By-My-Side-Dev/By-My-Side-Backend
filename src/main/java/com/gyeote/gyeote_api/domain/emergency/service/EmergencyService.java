@@ -18,6 +18,7 @@ import com.gyeote.gyeote_api.domain.user.entity.User;
 import com.gyeote.gyeote_api.domain.user.entity.UserPlan;
 import com.gyeote.gyeote_api.domain.user.entity.UserStatus;
 import com.gyeote.gyeote_api.domain.user.repository.UserRepository;
+import com.gyeote.gyeote_api.domain.notification.service.FcmOutboxService;
 import com.gyeote.gyeote_api.global.exception.BusinessException;
 import com.gyeote.gyeote_api.global.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,7 @@ public class EmergencyService {
     private final AlertRecipientRepository alertRecipientRepository;
     private final ContactRepository contactRepository;
     private final ReverseGeocodingService reverseGeocodingService;
+    private final FcmOutboxService fcmOutboxService;
 
     // 15초 주기로 위도, 경도를 받는다.
     @Value("${emergency.location-update-interval-seconds:15}")
@@ -103,6 +105,8 @@ public class EmergencyService {
                 .build();
 
         alertLocationsRepository.save(initialLocation);
+
+        fcmOutboxService.create(emergencyAlert, receivers);
 
         return EmergencyResponse.from(emergencyAlert.getId());
     }
