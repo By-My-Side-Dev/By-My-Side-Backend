@@ -5,6 +5,7 @@ import com.gyeote.gyeote_api.domain.device.service.DeviceTokenService;
 import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/users/me/device-token")
+@Tag(name = "Device Token", description = "디바이스 토큰 관련 API")
 public class DeviceTokenController {
 
     private final DeviceTokenService deviceTokenService;
