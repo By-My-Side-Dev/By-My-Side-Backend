@@ -31,8 +31,6 @@ public class FcmConfig {
                 && !properties.getProjectId().equals(serviceAccount.getProjectId())) {
             throw new IllegalStateException("FIREBASE_PROJECT_ID가 서비스 계정 프로젝트와 일치하지 않습니다.");
         }
-        // AccessToken 발급
-        credentials.refreshAccessToken();
         // 파이어베이스 초기화 설정 객체 생성
         FirebaseOptions options = FirebaseOptions.builder()
                 .setCredentials(credentials)
