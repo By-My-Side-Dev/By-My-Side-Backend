@@ -29,7 +29,7 @@ fcm:
   batch-size: 100
   scheduler:
     fixed-delay-ms: 5000
-  project-id: ${FIREBASE_PROJECT_ID:}
+  project-id: ${FIREBASE_PROJECT_ID}
 
 social:
   oauth:
