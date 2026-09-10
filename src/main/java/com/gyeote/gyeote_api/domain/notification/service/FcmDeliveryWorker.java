@@ -98,10 +98,14 @@ public class FcmDeliveryWorker {
         }
     }
 
+    /**
+     * {@code FcmDeliveryWorker.class} 내부 분기용 Enum값</br>
+     * 워커가 알림 전송 작업을 진행후 알림 전송 상태를 카운트 한다.
+     */
     private enum DeliveryOutcome {
-        SUCCEEDED,
-        NO_REGISTRATION,
-        FAILED
+        SUCCEEDED,          // 성공
+        NO_REGISTRATION,    // 가입된 회원이 없음
+        FAILED              // 실패
     }
 
 }
