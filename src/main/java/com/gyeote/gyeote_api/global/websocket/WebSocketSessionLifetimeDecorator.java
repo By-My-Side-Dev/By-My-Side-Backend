@@ -57,6 +57,17 @@ public class WebSocketSessionLifetimeDecorator extends WebSocketHandlerDecorator
         super.afterConnectionClosed(session, closeStatus);
     }
 
+    @Override
+    public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
+        log.warn(
+                "event=websocket_transport_error sessionId={} exception={}",
+                session.getId(),
+                WebSocketLogSupport.exceptionType(exception),
+                WebSocketLogSupport.sanitized(exception)
+        );
+        super.handleTransportError(session, exception);
+    }
+
     private void closeExpiredSession(WebSocketSession session) {
         expirationTasks.remove(session.getId());
         if (!session.isOpen()) {
