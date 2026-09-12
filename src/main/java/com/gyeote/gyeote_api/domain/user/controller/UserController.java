@@ -69,6 +69,18 @@ public class UserController {
     }
 
     @Operation(
+            summary = "프로필 이미지 삭제",
+            description = "내 프로필 이미지를 삭제합니다."
+    )
+    @DeleteMapping("/profile-image")
+    public ApiResponse<Void> deleteProfileImage(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        userService.deleteProfileImage(principal.id());
+        return ApiResponse.success("내 프로필 이미지 삭제를 성공했습니다.");
+    }
+
+    @Operation(
             summary = "회원 탈퇴",
             description = "회원 정보를 직접 삭제하지 않고 삭제 시간을 DB에 저장합니다."
     )
