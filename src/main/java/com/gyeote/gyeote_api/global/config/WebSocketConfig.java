@@ -2,6 +2,7 @@ package com.gyeote.gyeote_api.global.config;
 
 import com.gyeote.gyeote_api.global.security.WebSocketJwtChannelInterceptor;
 import com.gyeote.gyeote_api.global.websocket.WebSocketSessionLifetimeDecorator;
+import com.gyeote.gyeote_api.global.websocket.WebSocketStompErrorHandler;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,7 @@ import java.util.concurrent.ScheduledExecutorService;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketJwtChannelInterceptor webSocketJwtChannelInterceptor;
+    private final WebSocketStompErrorHandler webSocketStompErrorHandler;
     private final ScheduledExecutorService webSocketSessionLifetimeScheduler =
             Executors.newSingleThreadScheduledExecutor(runnable -> {
                 Thread thread = new Thread(runnable, "websocket-session-lifetime");
@@ -58,6 +60,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.setErrorHandler(webSocketStompErrorHandler);
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(allowedOriginPatterns);
     }
