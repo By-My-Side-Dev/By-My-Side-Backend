@@ -10,6 +10,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TZ: "Asia/Seoul"
+    volumes:
+      - /home/azureuser/app/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
     ports:
       - "8080:8080"
     networks:

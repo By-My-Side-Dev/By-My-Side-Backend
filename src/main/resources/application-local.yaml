@@ -22,4 +22,4 @@ azure:
     container-name: ${AZURE_STORAGE_CONTAINER_NAME}
 
 websocket:
-  allowed-origin-patterns: http://localhost:*
+  allowed-origin-patterns: ${WEBSOCKET_ALLOWED_ORIGIN_PATTERNS}
