@@ -62,3 +62,4 @@ Thumbs.db
 /src/main/.azure/default/deployment.targets.xml
 /src/main/.azure/profiles.xml
 /src/main/.azure/default/connections.xml
+/AGENTS.md

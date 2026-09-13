@@ -6,16 +6,21 @@ import com.gyeote.gyeote_api.domain.emergency.service.EmergencyService;
 import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import com.gyeote.gyeote_api.global.exception.BusinessException;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
+import com.gyeote.gyeote_api.global.websocket.WebSocketLogSupport;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.annotation.*;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SendToUser;
+import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 public class EmergencyLocationSocketController {
 
     private final EmergencyService emergencyService;
@@ -63,7 +68,17 @@ public class EmergencyLocationSocketController {
 
     @MessageExceptionHandler(BusinessException.class)
     @SendToUser("/queue/errors")
-    public ApiResponse<Void> handleBusinessException(BusinessException exception) {
+    public ApiResponse<Void> handleBusinessException(BusinessException exception, Message<?> message) {
+        StompHeaderAccessor accessor = WebSocketLogSupport.accessor(message);
+        log.warn(
+                "event=stomp_send_failed sessionId={} userId={} command={} destination={} alertId={} reason=business errorCode={}",
+                WebSocketLogSupport.sessionId(accessor),
+                WebSocketLogSupport.userId(accessor),
+                WebSocketLogSupport.command(accessor),
+                WebSocketLogSupport.destination(accessor),
+                WebSocketLogSupport.alertId(accessor),
+                exception.getErrorCode().getCode()
+        );
         return ApiResponse.error(exception.getErrorCode());
     }
 }
