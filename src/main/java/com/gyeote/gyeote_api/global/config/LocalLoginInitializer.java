@@ -44,6 +44,7 @@ public class LocalLoginInitializer implements CommandLineRunner {
     private final PhoneCryptoService phoneCryptoService;
     private final JwtTokenProvider jwtTokenProvider;
 
+
     @Override
     @Transactional
     public void run(String... args) {
@@ -62,10 +63,17 @@ public class LocalLoginInitializer implements CommandLineRunner {
                 """.formatted(user.getId(), TEST_LOGIN_ID, accessToken, refreshToken);
 
         try {
-            Files.writeString(TOKEN_FILE, content, StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            log.info("테스트 계정 토큰을 {}에 저장했습니다. 터미널 자동 줄바꿈으로 토큰이 깨질 수 있으니, 콘솔 대신 이 파일에서 복사하세요.",
-                    TOKEN_FILE.toAbsolutePath());
+            Files.writeString(
+                    TOKEN_FILE,
+                    content,
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+            );
+            log.info(
+                    "테스트 계정 토큰을 {}에 저장했습니다. 터미널 자동 줄바꿈으로 토큰이 깨질 수 있으니, 콘솔 대신 이 파일에서 복사하세요.",
+                    TOKEN_FILE.toAbsolutePath()
+            );
         } catch (IOException e) {
             throw new UncheckedIOException("테스트 계정 토큰 파일 저장 실패", e);
         }
@@ -76,6 +84,10 @@ public class LocalLoginInitializer implements CommandLineRunner {
                 .name("테스트유저")
                 .loginId(TEST_LOGIN_ID)
                 .passwordHash(passwordEncoder.encode(TEST_PASSWORD))
+                .agreeLocation(true)
+                .agreeTerms(true)
+                .agreePrivacy(true)
+                .agreeThirdParty(true)
                 .build();
         user.activate();
         User savedUser = userRepository.save(user);

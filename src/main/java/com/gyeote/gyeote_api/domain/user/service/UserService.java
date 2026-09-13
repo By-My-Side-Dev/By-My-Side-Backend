@@ -159,6 +159,24 @@ public class UserService {
     }
 
     /**
+     * 유저 프로필 사진 삭제
+     * @param userId 유저 아이디
+     */
+    @Transactional
+    public void deleteProfileImage(Long userId) {
+        User user = userRepository.findUserById(userId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
+        String objectKey = user.getProfileImageKey();
+
+        if (objectKey == null) {
+            return;
+        }
+
+        user.updateProfileImageKey(null);
+        registerProfileImageDeletion(objectKey);
+    }
+
+    /**
      * 회원 탈퇴(soft delete)</br>
      * soft delete 정책에 의해서 유저와 유저 전화번에 deleteAt에 삭제 시간을 기록한다.
      * @param userId 유저의 아이디
@@ -275,6 +293,22 @@ public class UserService {
             deleteProfileImageSafely(newObjectKey);
             throw e;
         }
+    }
+
+    /**
+     * 프로필 이미지 삭제 트랜잭션이 커밋되면 스토리지의 기존 이미지를 삭제한다.
+     *
+     * @param objectKey 삭제할 프로필 이미지 객체 키
+     */
+    private void registerProfileImageDeletion(String objectKey) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        deleteProfileImageSafely(objectKey);
+                    }
+                }
+        );
     }
 
     /**

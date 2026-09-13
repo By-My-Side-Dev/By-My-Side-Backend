@@ -131,9 +131,6 @@ public class User {
         this.lastLoginAt = loginAt;
     }
 
-    /**
-     * 전화번호 인증까지 마친 가입 완료 시점에 호출한다.
-     */
     public void activate() {
         this.status = UserStatus.ACTIVE;
     }
