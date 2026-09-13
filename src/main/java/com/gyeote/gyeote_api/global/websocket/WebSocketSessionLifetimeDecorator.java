@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 public class WebSocketSessionLifetimeDecorator extends WebSocketHandlerDecorator {
 
     private static final CloseStatus MAX_SESSION_DURATION_REACHED =
-            CloseStatus.NORMAL.withReason("Maximum WebSocket connection duration reached");
+            CloseStatus.NORMAL.withReason("WebSocket 연결 최대 지속 시간에 도달했습니다.");
 
     private final ScheduledExecutorService scheduler;
     private final Duration maxSessionDuration;
@@ -77,7 +77,7 @@ public class WebSocketSessionLifetimeDecorator extends WebSocketHandlerDecorator
         try {
             session.close(MAX_SESSION_DURATION_REACHED);
         } catch (IOException exception) {
-            log.warn("Failed to close expired WebSocket session: sessionId={}", session.getId(), exception);
+            log.warn("만료된 WebSocket 세션을 닫는 데 실패했습니다.: sessionId={}", session.getId(), exception);
         }
     }
 
@@ -90,7 +90,7 @@ public class WebSocketSessionLifetimeDecorator extends WebSocketHandlerDecorator
 
     private static Duration requirePositive(Duration duration) {
         if (duration == null || duration.isZero() || duration.isNegative()) {
-            throw new IllegalArgumentException("WebSocket max session duration must be positive.");
+            throw new IllegalArgumentException("WebSocket 최대 세션 지속 시간은 양수여야 합니다.");
         }
         return duration;
     }
