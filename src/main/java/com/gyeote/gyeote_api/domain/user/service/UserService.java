@@ -1,6 +1,7 @@
 package com.gyeote.gyeote_api.domain.user.service;
 
 import com.gyeote.gyeote_api.domain.auth.exception.SignupErrorCode;
+import com.gyeote.gyeote_api.domain.device.repository.DeviceTokenRepository;
 import com.gyeote.gyeote_api.domain.user.dto.*;
 import com.gyeote.gyeote_api.domain.user.entity.User;
 import com.gyeote.gyeote_api.domain.user.entity.UserPhone;
@@ -36,6 +37,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserPhoneRepository userPhoneRepository;
+    private final DeviceTokenRepository deviceTokenRepository;
     private final PhoneCryptoService phoneCryptoService;
     private final ObjectStorage objectStorage;
     private final Tika tika;
@@ -191,6 +193,7 @@ public class UserService {
 
         user.softDeleteUser(deletedAt);
         userPhone.softDeletePhoneNumber(deletedAt);
+        deviceTokenRepository.deleteByUserId(userId);
     }
 
     /**
