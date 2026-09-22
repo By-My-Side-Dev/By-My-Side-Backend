@@ -23,6 +23,7 @@ import com.gyeote.gyeote_api.global.exception.BusinessException;
 import com.gyeote.gyeote_api.global.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,8 +54,10 @@ public class EmergencyService {
     private long locationUpdateIntervalSeconds;
 
     /**
-     * 사용자의 현재 위치로 긴급 호출을 생성하고 활성 상태인 지인들을 수신자로 등록한다.
-     * 실시간 위치 공유 설정과 관계없이 최초 위치는 위치 이력에 저장한다.
+     * 사용자의 현재 위치로 긴급 호출을 생성한다.
+     * 무료 사용자는 만료되지 않은 가장 최근 알림이 있으면 해당 알림의 위치와 주소만 갱신하고,
+     * 유효한 알림이 없으면 활성 상태인 지인들을 수신자로 등록한 새 알림을 생성한다.
+     * 유료 사용자는 호출할 때마다 새 알림을 생성한다.
      *
      * @param userId 긴급 호출을 생성하는 사용자 ID
      * @param request 최초 위도와 경도
@@ -66,7 +69,31 @@ public class EmergencyService {
         User sender = userRepository.findUserById(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
 
-        List<User> receivers = contactRepository.findAllByUser_IdOrderByCreatedAtDesc(userId).stream()
+        BigDecimal latitude = normalizeCoordinate(request.latitude());
+        BigDecimal longitude = normalizeCoordinate(request.longitude());
+        String address = reverseGeocodingService.findAddress(latitude, longitude)
+                .orElse(null);
+
+        if (sender.getPlan() == UserPlan.FREE) {
+            sender = userRepository.findByIdForUpdate(userId)
+                    .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
+
+            Optional<EmergencyAlerts> reusableAlert = findReusableAlert(sender.getId(), LocalDateTime.now());
+            if (reusableAlert.isPresent()) {
+                return updateExistingFreeAlert(reusableAlert.get(), latitude, longitude, address);
+            }
+        }
+
+        return createNewEmergency(sender, latitude, longitude, address);
+    }
+
+    private EmergencyResponse createNewEmergency(
+            User sender,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            String address
+    ) {
+        List<User> receivers = contactRepository.findAllByUser_IdOrderByCreatedAtDesc(sender.getId()).stream()
                 .map(Contact::getContactUser)
                 .filter(receiver -> receiver.getDeletedAt() == null)
                 .filter(receiver -> receiver.getStatus() == UserStatus.ACTIVE)
@@ -75,11 +102,6 @@ public class EmergencyService {
         if (receivers.isEmpty()) {
             throw new BusinessException(AlertErrorCode.ALERT_NO_CONTACTS);
         }
-
-        BigDecimal latitude = normalizeCoordinate(request.latitude());
-        BigDecimal longitude = normalizeCoordinate(request.longitude());
-        String address = reverseGeocodingService.findAddress(latitude, longitude)
-                .orElse(null);
 
         EmergencyAlerts emergencyAlert = EmergencyAlerts.builder()
                 .sender(sender)
@@ -108,7 +130,38 @@ public class EmergencyService {
 
         fcmOutboxService.create(emergencyAlert, receivers);
 
-        return EmergencyResponse.from(emergencyAlert.getId());
+        return EmergencyResponse.from(emergencyAlert.getId(), emergencyAlert.getAddress());
+    }
+
+    private Optional<EmergencyAlerts> findReusableAlert(Long senderId, LocalDateTime now) {
+        return emergencyAlertsRepository
+                .findReusableBySenderId(senderId, now, PageRequest.of(0, 1))
+                .stream()
+                .findFirst();
+    }
+
+    private EmergencyResponse updateExistingFreeAlert(
+            EmergencyAlerts emergencyAlert,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            String address
+    ) {
+        LocalDateTime now = LocalDateTime.now();
+        emergencyAlert.updateLocation(latitude, longitude, address);
+
+        alertLocationsRepository.findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(emergencyAlert.getId())
+                .ifPresentOrElse(
+                        location -> location.updateCoordinates(latitude, longitude, now),
+                        () -> alertLocationsRepository.save(
+                                AlertLocations.builder()
+                                        .emergencyAlert(emergencyAlert)
+                                        .latitude(latitude)
+                                        .longitude(longitude)
+                                        .build()
+                        )
+                );
+
+        return EmergencyResponse.from(emergencyAlert.getId(), emergencyAlert.getAddress());
     }
 
     /**
