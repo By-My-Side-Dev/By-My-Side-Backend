@@ -82,9 +82,9 @@ public class AuthService {
      * Refresh Token을 검증하고 새로운 인증 토큰을 발급합니다.
      *
      * <p>JWT의 유효성뿐만 아니라 Redis에 저장된 Refresh Token과의 일치 여부, 사용자 존재 여부,
-     * 계정 활성 상태를 확인합니다. 저장된 토큰과 요청 토큰이 다르거나 유효한 사용자를 찾을 수
-     * 없는 경우 기존 Redis 세션을 삭제합니다. 검증에 성공하면 기존 Refresh Token을 새 토큰으로
-     * 교체합니다.</p>
+     * 계정 활성 상태를 확인합니다. 저장된 토큰과 요청 토큰이 다르면 현재 Redis 세션을 유지한 채
+     * 오류를 반환합니다. 유효한 사용자를 찾을 수 없거나 계정이 비활성 상태인 경우에는 기존 Redis
+     * 세션을 삭제하며, 검증에 성공하면 기존 Refresh Token을 새 토큰으로 교체합니다.</p>
      *
      * @param request 재발급에 사용할 Refresh Token 요청
      * @return 새로 발급한 Access Token과 Refresh Token
@@ -97,20 +97,24 @@ public class AuthService {
         String key = REFRESH_KEY_PREFIX + userId;
         String savedToken = redisTemplate.opsForValue().get(key);
 
+        // [검증] 저장된 토큰이 null인지 검사
         if (savedToken == null) {
             throw new BusinessException(AuthErrorCode.AUTH_REFRESH_TOKEN_NOT_FOUND);
         }
+
+        // [검증] 요청받은 토큰이 저장된 토큰과 동일한지 검사
         if (!request.refreshToken().equals(savedToken)) {
-            redisTemplate.delete(key);
             throw new BusinessException(AuthErrorCode.AUTH_LOGGED_IN_OTHER_DEVICE);
         }
 
+        // [검증] 유저의 deleteAt이 null 이 아니면 에러 반환
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> {
                     redisTemplate.delete(key);
                     return new BusinessException(AuthErrorCode.AUTH_SESSION_EXPIRED);
                 });
 
+        // [검증] 유저의 상태가 DeActive인 경우 에러 반환
         if (user.getStatus() == UserStatus.DEACTIVE) {
             redisTemplate.delete(key);
             throw new BusinessException(AuthErrorCode.AUTH_DEACTIVATED_USER);
