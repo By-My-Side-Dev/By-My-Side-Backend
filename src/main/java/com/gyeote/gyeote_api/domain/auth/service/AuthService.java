@@ -213,6 +213,7 @@ public class AuthService {
         }
 
         User loginUser = user.get();
+        // [검증] 유저가 활성화 상태인지 검증
         if (loginUser.getStatus() == UserStatus.DEACTIVE) {
             throw new BusinessException(AuthErrorCode.AUTH_DEACTIVATED_USER);
         }
