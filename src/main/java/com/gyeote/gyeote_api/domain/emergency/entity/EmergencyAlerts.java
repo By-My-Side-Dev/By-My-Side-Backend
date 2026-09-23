@@ -66,4 +66,14 @@ public class EmergencyAlerts {
     public void end(LocalDateTime endedAt) {
         this.endedAt = endedAt;
     }
+
+    public void updateLocation(
+            BigDecimal latitude,
+            BigDecimal longitude,
+            String address
+    ) {
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.address = address;
+    }
 }
