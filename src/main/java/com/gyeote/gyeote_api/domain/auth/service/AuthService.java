@@ -15,12 +15,14 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -39,6 +41,20 @@ public class AuthService {
 
     /** Redis에 Refresh Token을 저장할 때 사용하는 키 접두사 */
     private static final String REFRESH_KEY_PREFIX = "refresh:";
+    private static final long REFRESH_ROTATION_SUCCESS = 1L;
+    private static final long REFRESH_ROTATION_KEY_NOT_FOUND = 0L;
+    private static final long REFRESH_ROTATION_TOKEN_MISMATCH = -1L;
+    private static final DefaultRedisScript<Long> ROTATE_REFRESH_TOKEN_SCRIPT = new DefaultRedisScript<>("""
+            local currentToken = redis.call('GET', KEYS[1])
+            if not currentToken then
+                return 0
+            end
+            if currentToken ~= ARGV[1] then
+                return -1
+            end
+            redis.call('PSETEX', KEYS[1], ARGV[3], ARGV[2])
+            return 1
+            """, Long.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -95,17 +111,6 @@ public class AuthService {
         Long userId = parseRefreshToken(request.refreshToken());
 
         String key = REFRESH_KEY_PREFIX + userId;
-        String savedToken = redisTemplate.opsForValue().get(key);
-
-        // [검증] 저장된 토큰이 null인지 검사
-        if (savedToken == null) {
-            throw new BusinessException(AuthErrorCode.AUTH_REFRESH_TOKEN_NOT_FOUND);
-        }
-
-        // [검증] 요청받은 토큰이 저장된 토큰과 동일한지 검사
-        if (!request.refreshToken().equals(savedToken)) {
-            throw new BusinessException(AuthErrorCode.AUTH_LOGGED_IN_OTHER_DEVICE);
-        }
 
         // [검증] 유저의 deleteAt이 null 이 아니면 에러 반환
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
@@ -120,7 +125,36 @@ public class AuthService {
             throw new BusinessException(AuthErrorCode.AUTH_DEACTIVATED_USER);
         }
 
-        return issueTokens(userId);
+        TokenResponse tokens = createTokens(userId);
+        rotateRefreshToken(key, request.refreshToken(), tokens.refreshToken());
+        return tokens;
+    }
+
+    /**
+     * 저장된 Refresh Token이 요청 토큰과 일치할 때만 새 토큰과 TTL을 원자적으로 저장합니다.
+     *
+     * <p>Redis Lua 스크립트가 조회, 비교, 저장을 하나의 연산으로 수행하므로 동일한 토큰을
+     * 사용한 동시 재발급 요청 중 하나만 성공할 수 있습니다.</p>
+     */
+    private void rotateRefreshToken(String key, String currentToken, String newToken) {
+        Long result = redisTemplate.execute(
+                ROTATE_REFRESH_TOKEN_SCRIPT,
+                List.of(key),
+                currentToken,
+                newToken,
+                String.valueOf(jwtTokenProvider.getRefreshTokenValidityMs())
+        );
+
+        if (Long.valueOf(REFRESH_ROTATION_SUCCESS).equals(result)) {
+            return;
+        }
+        if (Long.valueOf(REFRESH_ROTATION_KEY_NOT_FOUND).equals(result)) {
+            throw new BusinessException(AuthErrorCode.AUTH_REFRESH_TOKEN_NOT_FOUND);
+        }
+        if (Long.valueOf(REFRESH_ROTATION_TOKEN_MISMATCH).equals(result)) {
+            throw new BusinessException(AuthErrorCode.AUTH_LOGGED_IN_OTHER_DEVICE);
+        }
+        throw new IllegalStateException("Unexpected refresh token rotation result: " + result);
     }
 
     /**
@@ -167,16 +201,21 @@ public class AuthService {
      * @return 새로 발급한 Access Token과 Refresh Token
      */
     public TokenResponse issueTokens(Long userId) {
-        String accessToken = jwtTokenProvider.createAccessToken(userId);
-        String refreshToken = jwtTokenProvider.createRefreshToken(userId);
+        TokenResponse tokens = createTokens(userId);
 
         // 리프레쉬 토큰 덮어쓰기(redis)
         redisTemplate.opsForValue().set(
                 REFRESH_KEY_PREFIX + userId,
-                refreshToken,
+                tokens.refreshToken(),
                 Duration.ofMillis(jwtTokenProvider.getRefreshTokenValidityMs())
         );
 
+        return tokens;
+    }
+
+    private TokenResponse createTokens(Long userId) {
+        String accessToken = jwtTokenProvider.createAccessToken(userId);
+        String refreshToken = jwtTokenProvider.createRefreshToken(userId);
         return new TokenResponse(accessToken, refreshToken);
     }
 
