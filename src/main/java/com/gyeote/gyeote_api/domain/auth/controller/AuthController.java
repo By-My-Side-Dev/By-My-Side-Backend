@@ -3,6 +3,7 @@ package com.gyeote.gyeote_api.domain.auth.controller;
 import com.gyeote.gyeote_api.domain.auth.dto.*;
 import com.gyeote.gyeote_api.domain.auth.service.AuthService;
 import com.gyeote.gyeote_api.domain.auth.service.SignupService;
+import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -57,9 +58,9 @@ public class AuthController {
     )
     @PostMapping("/logout")
     public ApiResponse<Void> logout(
-            @AuthenticationPrincipal Long userId
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
-        authService.logout(userId);
+        authService.logout(principal.id());
         return ApiResponse.success("로그아웃되었습니다.");
     }
 

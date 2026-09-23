@@ -147,6 +147,7 @@ public class AuthService {
      *
      * @param userId 로그아웃할 사용자 ID
      */
+    @Transactional
     public void logout(Long userId) {
         deviceTokenRepository.deleteByUserId(userId);
         redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
