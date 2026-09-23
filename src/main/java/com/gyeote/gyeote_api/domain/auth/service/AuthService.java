@@ -14,6 +14,7 @@ import com.gyeote.gyeote_api.global.security.OnboardingTokenProvider;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -41,20 +42,18 @@ public class AuthService {
 
     /** Redis에 Refresh Token을 저장할 때 사용하는 키 접두사 */
     private static final String REFRESH_KEY_PREFIX = "refresh:";
+
+    /** Refresh Token 교체에 성공했음을 나타내는 Lua 스크립트 반환 코드 */
     private static final long REFRESH_ROTATION_SUCCESS = 1L;
+
+    /** Redis에 사용자 Refresh Token 키가 없음을 나타내는 Lua 스크립트 반환 코드 */
     private static final long REFRESH_ROTATION_KEY_NOT_FOUND = 0L;
+
+    /** 저장된 토큰과 요청 토큰이 일치하지 않음을 나타내는 Lua 스크립트 반환 코드 */
     private static final long REFRESH_ROTATION_TOKEN_MISMATCH = -1L;
-    private static final DefaultRedisScript<Long> ROTATE_REFRESH_TOKEN_SCRIPT = new DefaultRedisScript<>("""
-            local currentToken = redis.call('GET', KEYS[1])
-            if not currentToken then
-                return 0
-            end
-            if currentToken ~= ARGV[1] then
-                return -1
-            end
-            redis.call('PSETEX', KEYS[1], ARGV[3], ARGV[2])
-            return 1
-            """, Long.class);
+
+    /** Refresh Token의 비교와 교체를 원자적으로 수행하는 클래스패스 Lua 스크립트 */
+    private static final DefaultRedisScript<Long> ROTATE_REFRESH_TOKEN_SCRIPT = createRotateRefreshTokenScript();
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -63,6 +62,18 @@ public class AuthService {
     private final OnboardingTokenProvider onboardingTokenProvider;
     private final SocialTokenVerifier socialTokenVerifier;
     private final DeviceTokenRepository deviceTokenRepository;
+
+    /**
+     * Refresh Token 회전용 Lua 스크립트를 클래스패스에서 불러옵니다.
+     *
+     * @return 실행 결과를 {@link Long}으로 반환하는 Redis 스크립트
+     */
+    private static DefaultRedisScript<Long> createRotateRefreshTokenScript() {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setLocation(new ClassPathResource("redis/rotate-refresh-token.lua"));
+        script.setResultType(Long.class);
+        return script;
+    }
 
     /**
      * 로그인 ID와 비밀번호를 검증하여 사용자를 로그인시킵니다.
@@ -135,6 +146,11 @@ public class AuthService {
      *
      * <p>Redis Lua 스크립트가 조회, 비교, 저장을 하나의 연산으로 수행하므로 동일한 토큰을
      * 사용한 동시 재발급 요청 중 하나만 성공할 수 있습니다.</p>
+     *
+     * @param key 사용자 Refresh Token을 저장한 Redis 키
+     * @param currentToken 재발급 요청에 사용된 현재 Refresh Token
+     * @param newToken 현재 토큰과 일치할 때 저장할 새 Refresh Token
+     * @throws BusinessException Redis 키가 없거나 저장된 토큰이 요청 토큰과 일치하지 않는 경우
      */
     private void rotateRefreshToken(String key, String currentToken, String newToken) {
         Long result = redisTemplate.execute(
@@ -213,6 +229,15 @@ public class AuthService {
         return tokens;
     }
 
+    /**
+     * Redis 저장 없이 사용자에게 발급할 Access Token과 Refresh Token을 생성합니다.
+     *
+     * <p>일반 로그인 경로에서는 호출자가 생성한 Refresh Token을 Redis에 저장하고,
+     * 재발급 경로에서는 Lua 스크립트가 기존 토큰과 비교한 후 원자적으로 저장합니다.</p>
+     *
+     * @param userId 토큰 subject에 기록할 사용자 ID
+     * @return 새로 생성한 Access Token과 Refresh Token
+     */
     private TokenResponse createTokens(Long userId) {
         String accessToken = jwtTokenProvider.createAccessToken(userId);
         String refreshToken = jwtTokenProvider.createRefreshToken(userId);
