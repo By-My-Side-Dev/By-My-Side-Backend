@@ -3,6 +3,7 @@ package com.gyeote.gyeote_api.domain.auth.controller;
 import com.gyeote.gyeote_api.domain.auth.dto.*;
 import com.gyeote.gyeote_api.domain.auth.service.AuthService;
 import com.gyeote.gyeote_api.domain.auth.service.SignupService;
+import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,7 +29,9 @@ public class AuthController {
             description = "아이디, 비밀번호, 핸드폰번호를 통해서 회원가입을 진행합니다."
     )
     @PostMapping("/signup")
-    public ApiResponse<Void> signup(@Valid @RequestBody SignupRequest request) {
+    public ApiResponse<Void> signup(
+            @Valid @RequestBody SignupRequest request
+    ) {
         signupService.signup(request);
         return ApiResponse.success("회원가입이 완료되었습니다.");
     }
@@ -38,7 +41,9 @@ public class AuthController {
             description = "아이디/비밀번호로 로그인 하여 Access/Refresh 토큰을 발급받습니다."
     )
     @PostMapping("/login")
-    public ApiResponse<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ApiResponse<TokenResponse> login(
+            @Valid @RequestBody LoginRequest request
+    ) {
         return ApiResponse.success("로그인에 성공했습니다.", authService.login(request));
     }
 
@@ -47,7 +52,9 @@ public class AuthController {
             description = "Access 와 Refresh 토큰을 재발급 합니다."
     )
     @PostMapping("/reissue")
-    public ApiResponse<TokenResponse> refresh(@Valid @RequestBody RefreshRequest request) {
+    public ApiResponse<TokenResponse> refresh(
+            @Valid @RequestBody RefreshRequest request
+    ) {
         return ApiResponse.success("토큰이 재발급되었습니다.", authService.refresh(request));
     }
 
@@ -57,9 +64,9 @@ public class AuthController {
     )
     @PostMapping("/logout")
     public ApiResponse<Void> logout(
-            @AuthenticationPrincipal Long userId
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
-        authService.logout(userId);
+        authService.logout(principal.id());
         return ApiResponse.success("로그아웃되었습니다.");
     }
 
