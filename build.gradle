@@ -32,6 +32,8 @@ dependencies {
 	implementation 'com.azure:azure-storage-blob:12.35.0'
 	implementation 'com.azure:azure-identity:1.18.5'
 	implementation 'com.google.firebase:firebase-admin:9.10.0'
+	implementation 'org.flywaydb:flyway-core'
+	runtimeOnly 'org.flywaydb:flyway-mysql'
 	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
@@ -48,6 +50,12 @@ dependencies {
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('processResources') {
+	from('database/migrations/flyway') {
+		into 'db/migration'
+	}
 }
 
 tasks.named('test') {
