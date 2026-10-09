@@ -7,6 +7,7 @@ COPY gradle ./gradle
 RUN chmod +x gradlew
 
 COPY src ./src
+COPY database/migrations/flyway ./database/migrations/flyway
 RUN ./gradlew bootJar --no-daemon
 
 FROM eclipse-temurin:17-jre-jammy AS runtime

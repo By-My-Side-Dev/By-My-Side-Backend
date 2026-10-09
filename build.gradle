@@ -32,7 +32,7 @@ dependencies {
 	implementation 'com.azure:azure-storage-blob:12.35.0'
 	implementation 'com.azure:azure-identity:1.18.5'
 	implementation 'com.google.firebase:firebase-admin:9.10.0'
-	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	runtimeOnly 'org.flywaydb:flyway-mysql'
 	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
