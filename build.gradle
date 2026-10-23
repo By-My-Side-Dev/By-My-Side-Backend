@@ -52,12 +52,6 @@ dependencies {
 	testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
-tasks.named('processResources') {
-	from('database/migrations/flyway') {
-		into 'db/migration'
-	}
-}
-
 tasks.named('test') {
 	useJUnitPlatform()
 }
