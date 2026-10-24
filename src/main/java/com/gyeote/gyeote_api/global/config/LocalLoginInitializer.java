@@ -83,6 +83,7 @@ public class LocalLoginInitializer implements CommandLineRunner {
         User user = User.builder()
                 .name("테스트유저")
                 .loginId(TEST_LOGIN_ID)
+                .email("testuser@example.com")
                 .passwordHash(passwordEncoder.encode(TEST_PASSWORD))
                 .agreeLocation(true)
                 .agreeTerms(true)

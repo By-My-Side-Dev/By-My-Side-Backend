@@ -3,6 +3,18 @@ spring:
     name: gyeote-api
   profiles:
     default: local
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
   jpa:
     open-in-view: false
   servlet:
@@ -14,6 +26,9 @@ jwt:
   secret: ${JWT_SECRET}
   access-token-validity-ms: 1800000     # 30분
   refresh-token-validity-ms: 2592000000 # 30일
+
+mail:
+  from: ${MAIL_FROM:}
 
 phone:
   enc-key: ${PHONE_ENC_KEY}
@@ -56,6 +71,10 @@ websocket:
     client-to-server-interval-ms: 20000
 
 management:
+  health:
+    mail:
+      # SMTP 장애가 애플리케이션 전체 배포 헬스 체크를 실패시키지 않게 한다.
+      enabled: false
   endpoints:
     web:
       base-path: /

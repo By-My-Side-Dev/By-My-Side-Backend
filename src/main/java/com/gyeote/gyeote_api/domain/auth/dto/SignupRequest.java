@@ -1,7 +1,10 @@
 package com.gyeote.gyeote_api.domain.auth.dto;
 
+import com.gyeote.gyeote_api.domain.auth.email.EmailAddress;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -15,6 +18,14 @@ public record SignupRequest(
         @NotBlank
         @Size(max = 50)
         String loginId,
+
+        @Schema(description = "인증한 이메일", example = "user@example.com")
+        @NotBlank @Email @Size(max = 255)
+        String email,
+
+        @Schema(description = "이메일 인증 완료 시 발급된 일회용 토큰 (10분 유효)")
+        @NotBlank @Size(max = 36)
+        String emailVerificationToken,
 
         @Schema(description = "비밀번호 (8~64자, 영문자와 숫자 포함)", example = "password1234", format = "password")
         @NotBlank(message = "SIGNUP_REQUIRED_PASSWORD")
@@ -40,4 +51,7 @@ public record SignupRequest(
         @Schema(description = "개인정보 제3자 제공 동의", example = "true")
         boolean agreeThirdParty
 ) {
+    public SignupRequest {
+        email = EmailAddress.normalize(email);
+    }
 }

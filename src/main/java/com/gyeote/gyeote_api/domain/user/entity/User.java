@@ -22,6 +22,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "users", uniqueConstraints = {
         @UniqueConstraint(name = "uniq_login_id", columnNames = "login_id"),
+        @UniqueConstraint(name = "uniq_email", columnNames = "email"),
         @UniqueConstraint(name = "uniq_provider", columnNames = {"provider", "provider_uid"})
 })
 @Getter
@@ -40,6 +41,9 @@ public class User {
 
     @Column(name = "login_id", length = 50)
     private String loginId;
+
+    @Column(name = "email", length = 255)
+    private String email;
 
     @Column(name = "password_hash", length = 72)
     private String passwordHash;
@@ -93,13 +97,14 @@ public class User {
     private LocalDateTime createdAt;
 
     @Builder
-    private User(String name, String loginId, String passwordHash,
+    private User(String name, String loginId, String email, String passwordHash,
                  String provider, String providerUid, String profileImageKey,
                  boolean agreeLocation, boolean agreePrivacy,
                  boolean agreeTerms, boolean agreeThirdParty,
                  UserPlan plan) {
         this.name = name;
         this.loginId = loginId;
+        this.email = email;
         this.passwordHash = passwordHash;
         this.provider = provider;
         this.providerUid = providerUid;
@@ -133,6 +138,10 @@ public class User {
 
     public void activate() {
         this.status = UserStatus.ACTIVE;
+    }
+
+    public void updatePasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public void linkSocialAccount(String provider, String providerUid) {

@@ -34,6 +34,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/auth/signup",
+                                "/api/v1/auth/email/signup/code",
+                                "/api/v1/auth/email/signup/verify",
+                                "/api/v1/auth/password-reset/code",
+                                "/api/v1/auth/password-reset/verify",
+                                "/api/v1/auth/password-reset/confirm",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/reissue",
                                 "/api/v1/auth/social/login",
