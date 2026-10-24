@@ -124,7 +124,9 @@ public class AuthService {
         String key = REFRESH_KEY_PREFIX + userId;
 
         // [검증] 유저의 deleteAt이 null 이 아니면 에러 반환
-        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+        // 비밀번호 재설정의 세션 삭제와 토큰 회전이 교차하지 않게 같은 행을 잠근다.
+        User user = userRepository.findByIdForUpdate(userId)
+                .filter(found -> found.getDeletedAt() == null)
                 .orElseThrow(() -> {
                     redisTemplate.delete(key);
                     return new BusinessException(AuthErrorCode.AUTH_SESSION_EXPIRED);
@@ -216,7 +218,12 @@ public class AuthService {
      * @param userId 토큰을 발급할 사용자 ID
      * @return 새로 발급한 Access Token과 Refresh Token
      */
+    @Transactional
     public TokenResponse issueTokens(Long userId) {
+        // 이전 비밀번호로 진행 중이던 로그인은 버전 충돌을 Redis 저장 전에 확인한다.
+        userRepository.flush();
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.AUTH_SESSION_EXPIRED));
         TokenResponse tokens = createTokens(userId);
 
         // 리프레쉬 토큰 덮어쓰기(redis)

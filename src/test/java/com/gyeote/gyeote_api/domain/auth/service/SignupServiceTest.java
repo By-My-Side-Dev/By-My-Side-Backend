@@ -32,6 +32,8 @@ class SignupServiceTest {
     private OnboardingTokenProvider onboardingTokenProvider;
     @Mock
     private AuthService authService;
+    @Mock
+    private EmailVerificationService emailVerificationService;
 
     @Test
     void allowsDifferentAccountsToUseSamePhoneNumber() {
@@ -41,7 +43,8 @@ class SignupServiceTest {
                 passwordEncoder,
                 phoneCryptoService,
                 onboardingTokenProvider,
-                authService
+                authService,
+                emailVerificationService
         );
         String phone = "01012345678";
         when(phoneCryptoService.normalize(phone)).thenReturn(phone);
@@ -61,6 +64,8 @@ class SignupServiceTest {
         return new SignupRequest(
                 "테스트 사용자",
                 loginId,
+                loginId + "@example.com",
+                "email-verification-token",
                 "password123",
                 phone,
                 true,

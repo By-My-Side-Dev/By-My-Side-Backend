@@ -54,7 +54,7 @@ class PasswordValidationTest {
 
     private SignupRequest signupRequest(String password) {
         return new SignupRequest(
-                "홍길동", "login-id", password, "01012345678",
+                "홍길동", "login-id", "user@example.com", "email-verification-token", password, "01012345678",
                 true, true, true, true
         );
     }

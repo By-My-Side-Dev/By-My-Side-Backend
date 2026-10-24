@@ -9,6 +9,9 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum SignupErrorCode implements ErrorCode {
 
+    SIGNUP_DUPLICATED_EMAIL(HttpStatus.CONFLICT, "이미 사용 중인 이메일입니다."),
+    SIGNUP_EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "이메일 인증이 완료되지 않았거나 만료되었습니다."),
+
     SIGNUP_DUPLICATED_LOGIN_ID(HttpStatus.CONFLICT, "이미 사용 중인 아이디입니다."),
     SIGNUP_DUPLICATED_SOCIAL_ACCOUNT(HttpStatus.CONFLICT, "이미 가입된 소셜 계정입니다."),
     SIGNUP_PHONE_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "전화번호 인증이 완료되지 않았습니다."),

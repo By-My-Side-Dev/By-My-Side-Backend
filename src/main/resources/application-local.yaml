@@ -26,3 +26,6 @@ azure:
 
 websocket:
   allowed-origin-patterns: ${WEBSOCKET_ALLOWED_ORIGIN_PATTERNS}
+
+mail:
+  enabled: ${MAIL_ENABLED:false}
