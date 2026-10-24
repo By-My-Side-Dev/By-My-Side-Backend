@@ -23,6 +23,10 @@ public class PasswordResetService {
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
 
+    /**
+     * 아이디와 이메일이 있는지 검사하고 있으면 초기화 메일 발송
+     * @param request 비밀번호 초기화 요청 객체
+     */
     public void requestCode(PasswordResetCodeRequest request) {
         boolean eligible = findEligibleUser(request.loginId(), request.email()).isPresent();
         emailVerificationService.requestCode(request.email(), EmailVerificationPurpose.PASSWORD_RESET, eligible);

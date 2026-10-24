@@ -44,6 +44,10 @@ public class SignupService {
     private final AuthService authService;
     private final EmailVerificationService emailVerificationService;
 
+    /**
+     * 응답받은 이메일이 DB에 있는지 중복을 체크 후 메일로 인증번호 발송
+     * @param email 입력받은 이메일
+     */
     public void requestEmailCode(String email) {
         if (userRepository.existsByEmail(email)) {
             throw new BusinessException(SignupErrorCode.SIGNUP_DUPLICATED_EMAIL);
@@ -51,6 +55,10 @@ public class SignupService {
         emailVerificationService.requestCode(email, EmailVerificationPurpose.SIGNUP, true);
     }
 
+    /**
+     * 유저 회원가입
+     * @param request 회원가입 요청 정보
+     */
     @Transactional
     public void signup(SignupRequest request) {
         String phone = normalizeAndValidatePhone(request.phone());
@@ -82,6 +90,7 @@ public class SignupService {
         saveUserPhone(user, phone, phoneHash);
     }
 
+    /** 회원가입 유저 저장 */
     private void saveSignupUser(User user) {
         try {
             // IDENTITY 저장 및 flush 시점에 발생하는 동시 가입 제약 위반을 변환한다.
@@ -141,6 +150,13 @@ public class SignupService {
         return new SocialSignupCompleteResponse(authService.issueTokens(user.getId()));
     }
 
+    /**
+     * 소셜 계정 회원가입
+     * @param request 소셜로그인 요청 객체
+     * @param provider 제공자
+     * @param providerUid 제공자 uid
+     * @return 소셜로그인 응답 객체 반환
+     */
     private SocialSignupCompleteResponse signupSocialAccount(
             SocialSignupCompleteRequest request,
             String provider,
@@ -177,6 +193,12 @@ public class SignupService {
         return normalizedPhone;
     }
 
+    /**
+     * 유저 전화번호 저장
+     * @param user 유저
+     * @param phone 전화번호
+     * @param phoneHash 전화번호 해시값
+     */
     private void saveUserPhone(User user, String phone, String phoneHash) {
         userPhoneRepository.save(UserPhone.builder()
                 .user(user)
@@ -185,6 +207,10 @@ public class SignupService {
                 .build());
     }
 
+    /**
+     * 전화번호 검증
+     * @param normalizedPhone 정규화된 전화번호
+     */
     private void validatePhone(String normalizedPhone) {
         if (normalizedPhone.length() < MIN_PHONE_DIGITS || normalizedPhone.length() > MAX_PHONE_DIGITS) {
             throw new BusinessException(SignupErrorCode.SIGNUP_INVALID_PHONE);
