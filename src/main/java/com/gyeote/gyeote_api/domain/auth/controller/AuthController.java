@@ -4,6 +4,7 @@ import com.gyeote.gyeote_api.domain.auth.dto.*;
 import com.gyeote.gyeote_api.domain.auth.service.AuthService;
 import com.gyeote.gyeote_api.domain.auth.service.SignupService;
 import com.gyeote.gyeote_api.domain.auth.service.EmailVerificationService;
+import com.gyeote.gyeote_api.domain.auth.service.PasswordResetService;
 import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,6 +26,7 @@ public class AuthController {
     private final AuthService authService;
     private final SignupService signupService;
     private final EmailVerificationService emailVerificationService;
+    private final PasswordResetService passwordResetService;
 
     @Operation(
             summary = "회원가입",
@@ -52,6 +54,29 @@ public class AuthController {
     public ApiResponse<EmailVerificationResponse> signupEmailVerify(@Valid @RequestBody SignupEmailVerifyRequest request) {
         return ApiResponse.success("이메일 인증이 완료되었습니다.",
                 new EmailVerificationResponse(emailVerificationService.verifySignup(request.email(), request.code())));
+    }
+
+    @Operation(summary = "비밀번호 재설정 인증번호 요청",
+            description = "활성 일반 계정의 아이디·이메일이 일치할 때 발송하며, 일치 여부와 무관하게 같은 200 응답을 반환합니다. 미일치 요청도 재요청 60초·일일 10회 제한(429)을 적용합니다.")
+    @PostMapping("/password-reset/code")
+    public ApiResponse<Void> passwordResetCode(@Valid @RequestBody PasswordResetCodeRequest request) {
+        passwordResetService.requestCode(request);
+        return ApiResponse.success("인증번호가 발송되었습니다.");
+    }
+
+    @Operation(summary = "비밀번호 재설정 인증번호 검증",
+            description = "아이디·이메일과 6자리 인증번호를 검증하고 10분 유효 일회용 resetToken을 반환합니다. 계정 미일치·인증번호 만료·불일치는 동일한 400 오류입니다.")
+    @PostMapping("/password-reset/verify")
+    public ApiResponse<PasswordResetTokenResponse> passwordResetVerify(@Valid @RequestBody PasswordResetVerifyRequest request) {
+        return ApiResponse.success("인증이 완료되었습니다.", passwordResetService.verify(request));
+    }
+
+    @Operation(summary = "새 비밀번호 설정",
+            description = "일회용 resetToken을 소모해 비밀번호를 변경하고 기존 Refresh Token을 삭제합니다. 기존 Access Token은 만료 시까지 유효합니다. 무효·만료 토큰은 400입니다.")
+    @PostMapping("/password-reset/confirm")
+    public ApiResponse<Void> passwordResetConfirm(@Valid @RequestBody PasswordResetConfirmRequest request) {
+        passwordResetService.confirm(request);
+        return ApiResponse.success("비밀번호가 변경되었습니다. 다시 로그인해주세요.");
     }
 
     @Operation(
