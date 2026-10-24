@@ -5,6 +5,7 @@ import com.gyeote.gyeote_api.domain.auth.dto.SignupRequest;
 import com.gyeote.gyeote_api.domain.auth.dto.SocialSignupCompleteRequest;
 import com.gyeote.gyeote_api.domain.auth.dto.SocialSignupCompleteResponse;
 import com.gyeote.gyeote_api.domain.auth.exception.AuthErrorCode;
+import com.gyeote.gyeote_api.domain.auth.email.EmailVerificationPurpose;
 import com.gyeote.gyeote_api.domain.auth.exception.SignupErrorCode;
 import com.gyeote.gyeote_api.domain.user.entity.User;
 import com.gyeote.gyeote_api.domain.user.entity.UserPhone;
@@ -16,6 +17,8 @@ import com.gyeote.gyeote_api.global.security.OnboardingTokenProvider;
 import com.gyeote.gyeote_api.global.security.PhoneCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +42,14 @@ public class SignupService {
     private final PhoneCryptoService phoneCryptoService;
     private final OnboardingTokenProvider onboardingTokenProvider;
     private final AuthService authService;
+    private final EmailVerificationService emailVerificationService;
+
+    public void requestEmailCode(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new BusinessException(SignupErrorCode.SIGNUP_DUPLICATED_EMAIL);
+        }
+        emailVerificationService.requestCode(email, EmailVerificationPurpose.SIGNUP, true);
+    }
 
     @Transactional
     public void signup(SignupRequest request) {
@@ -48,20 +59,49 @@ public class SignupService {
             throw new BusinessException(SignupErrorCode.SIGNUP_DUPLICATED_LOGIN_ID);
         }
 
+        if (userRepository.existsByEmail(request.email())) {
+            throw new BusinessException(SignupErrorCode.SIGNUP_DUPLICATED_EMAIL);
+        }
+
         String phoneHash = phoneCryptoService.hash(phone);
+        String passwordHash = passwordEncoder.encode(request.password());
+        emailVerificationService.consumeSignupToken(request.emailVerificationToken(), request.email());
 
         User user = User.builder()
                 .name(request.name())
                 .loginId(request.loginId())
-                .passwordHash(passwordEncoder.encode(request.password()))
+                .email(request.email())
+                .passwordHash(passwordHash)
                 .agreeLocation(request.agreeLocation())
                 .agreePrivacy(request.agreePrivacy())
                 .agreeTerms(request.agreeTerms())
                 .agreeThirdParty(request.agreeThirdParty())
                 .build();
         user.activate();
-        userRepository.save(user);
+        saveSignupUser(user);
         saveUserPhone(user, phone, phoneHash);
+    }
+
+    private void saveSignupUser(User user) {
+        try {
+            // IDENTITY 저장 및 flush 시점에 발생하는 동시 가입 제약 위반을 변환한다.
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            Throwable cause = e;
+            while (cause != null) {
+                if (cause instanceof ConstraintViolationException violation) {
+                    String constraint = violation.getConstraintName();
+                    if (constraint != null && constraint.endsWith("uniq_email")) {
+                        throw new BusinessException(SignupErrorCode.SIGNUP_DUPLICATED_EMAIL);
+                    }
+                    if (constraint != null && constraint.endsWith("uniq_login_id")) {
+                        throw new BusinessException(SignupErrorCode.SIGNUP_DUPLICATED_LOGIN_ID);
+                    }
+                }
+                cause = cause.getCause();
+            }
+            throw e;
+        }
     }
 
     @Transactional
