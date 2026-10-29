@@ -72,6 +72,7 @@ channels:
     title: 유료 긴급 호출 위치 추가
     description: |
       유료 방식의 현재 좌표를 서버에 전송하는 STOMP `SEND` 목적지입니다.
+      REST `POST /api/v1/emergency-alerts/{alertId}/location/paid`로도 전송할 수 있으며, 결과는 동일한 `/topic/emergency-alerts/{alertId}/location`으로 브로드캐스트됩니다.
       호출 발신자의 사용자 플랜이 `PAID`일 때만 사용할 수 있습니다.
       발신자의 실시간 위치 공유 설정이 켜져 있어야 합니다.
       좌표를 수신할 때마다 위치 이력을 새 행으로 추가합니다.
@@ -91,6 +92,7 @@ channels:
     title: 무료 긴급 호출 위치 갱신
     description: |
       무료 방식의 현재 좌표를 서버에 전송하는 STOMP `SEND` 목적지입니다.
+      REST `POST /api/v1/emergency-alerts/{alertId}/location/free`로도 전송할 수 있으며, 결과는 동일한 `/topic/emergency-alerts/{alertId}/location`으로 브로드캐스트됩니다.
       호출 발신자의 사용자 플랜이 `FREE`일 때만 사용할 수 있습니다.
       발신자의 실시간 위치 공유 설정이 켜져 있어야 합니다.
       기존 최신 위치 행의 좌표를 갱신하며, 위치 행이 없는 예외적인 경우에만 최초 행을 생성합니다.
