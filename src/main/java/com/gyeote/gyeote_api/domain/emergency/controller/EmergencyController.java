@@ -2,6 +2,8 @@ package com.gyeote.gyeote_api.domain.emergency.controller;
 
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyRequest;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyResponse;
+import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateRequest;
+import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateResponse;
 import com.gyeote.gyeote_api.domain.emergency.service.EmergencyService;
 import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import com.gyeote.gyeote_api.global.response.ApiResponse;
@@ -9,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class EmergencyController {
 
     private final EmergencyService emergencyService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Operation(
             summary = "도움 요청 생성",
@@ -38,6 +42,49 @@ public class EmergencyController {
             @Valid @RequestBody EmergencyRequest request
     ) {
         return ApiResponse.success("도움 요청 전송 성공", emergencyService.createEmergency(principal.id(), request));
+    }
+
+    @Operation(
+            summary = "유료 긴급 호출 위치 추가",
+            description = """
+                    호출 발신자 본인만 사용할 수 있으며, 실시간 위치 공유가 활성화되어 있어야 합니다.
+                    발신자의 요금제가 PAID가 아니거나 실시간 위치 공유가 비활성화되어 있으면 403을 반환합니다.
+                    위치 이력을 새 행으로 저장하며, 좌표는 소수점 이하 7자리로 반올림됩니다.
+                    최소 갱신 간격은 기본 15초이며, 설정된 간격이 지나기 전 요청하면 429를 반환합니다.
+                    성공 시 /topic/emergency-alerts/{alertId}/location으로 저장된 좌표를 브로드캐스트합니다.
+                    """
+    )
+    @PostMapping("/{alertId}/location/paid")
+    public ApiResponse<LocationUpdateResponse> createPaidLocation(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long alertId,
+            @Valid @RequestBody LocationUpdateRequest request
+    ) {
+        LocationUpdateResponse response = emergencyService.createPaidLocation(principal.id(), alertId, request);
+        messagingTemplate.convertAndSend("/topic/emergency-alerts/" + alertId + "/location", response);
+        return ApiResponse.success("위치 갱신 성공", response);
+    }
+
+    @Operation(
+            summary = "무료 긴급 호출 위치 갱신",
+            description = """
+                    호출 발신자 본인만 사용할 수 있으며, 실시간 위치 공유가 활성화되어 있어야 합니다.
+                    발신자의 요금제가 FREE가 아니거나 실시간 위치 공유가 비활성화되어 있으면 403을 반환합니다.
+                    최신 위치 행의 좌표를 갱신하며, 위치 행이 없으면 새로 생성합니다.
+                    좌표는 소수점 이하 7자리로 반올림됩니다.
+                    최소 갱신 간격은 기본 15초이며, 설정된 간격이 지나기 전 요청하면 429를 반환합니다.
+                    성공 시 /topic/emergency-alerts/{alertId}/location으로 저장된 좌표를 브로드캐스트합니다.
+                    """
+    )
+    @PostMapping("/{alertId}/location/free")
+    public ApiResponse<LocationUpdateResponse> updateFreeLocation(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long alertId,
+            @Valid @RequestBody LocationUpdateRequest request
+    ) {
+        LocationUpdateResponse response = emergencyService.updateFreeLocation(principal.id(), alertId, request);
+        messagingTemplate.convertAndSend("/topic/emergency-alerts/" + alertId + "/location", response);
+        return ApiResponse.success("위치 갱신 성공", response);
     }
 
     @Operation(
