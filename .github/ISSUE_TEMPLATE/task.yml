@@ -1,0 +1,61 @@
+name: 작업 이슈 (Task)
+description: 인프라, 버그 수정, 리팩터링, 설정 변경 등 엔지니어링 작업을 등록할 때 사용
+title: "[Infra|Fix|Refactor|Chore] "
+body:
+  - type: dropdown
+    id: task_type
+    attributes:
+      label: 작업 유형 (Task Type)
+      description: 수행할 작업의 성격을 선택해주세요.
+      options:
+        - Infra (인프라 / 배포 / 설정)
+        - Fix (버그 및 오류 수정)
+        - Refactor (구조 개선 / 리팩터링)
+        - Chore (빌드 / 패키지 / 기타 관리)
+        - Docs (문서화)
+        - Test (테스트 추가 및 개선)
+    validations:
+      required: true
+
+  - type: textarea
+    id: background
+    attributes:
+      label: 배경 및 현황 (Background / As-Is)
+      description: 현재 어떤 문제나 불편함이 있는지, 이 작업이 왜 필요한지 작성해주세요.
+      placeholder: |
+        - 현재 상태 (As-Is) 및 문제점
+        - 이 작업이 필요한 이유
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: 작업 내용 (Tasks / To-Be)
+      description: 수행할 구체적인 작업 항목을 작성해주세요.
+      value: |
+        - [ ] 작업 항목 1
+        - [ ] 작업 항목 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_results
+    attributes:
+      label: 기대 효과 (Expected Results)
+      description: 이 작업이 완료되면 무엇이 개선되는지 작성해주세요.
+      placeholder: |
+        - 작업 완료 후 달라지는 점 (성능, 안정성, 유지보수성 등)
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 영향 범위 및 참고 사항 (Impact & Notes)
+      description: 환경변수, Docker/배포 스크립트, DB 마이그레이션, 하위 호환성 등 참고할 세부 사항을 작성해주세요.
+      placeholder: |
+        - 환경변수 또는 설정 변경 사항
+        - 배포 시 주의사항 / 하위 호환성 영향
+    validations:
+      required: false

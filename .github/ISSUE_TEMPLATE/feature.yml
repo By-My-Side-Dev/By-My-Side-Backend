@@ -1,0 +1,60 @@
+name: 기능 추가 (Feature)
+description: 새로운 비즈니스 기능이나 API/WebSocket 엔드포인트를 추가할 때 사용
+title: "[Feature] "
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 배경 및 목적 (Background)
+      description: 이 기능이 왜 필요한지, 해결하려는 문제나 배경을 작성해주세요.
+      placeholder: |
+        - 이 기능이 왜 필요한지
+        - 관련 배경/제약 사항
+    validations:
+      required: true
+
+  - type: textarea
+    id: specifications
+    attributes:
+      label: 주요 요구사항 및 명세 (Specifications)
+      description: 엔드포인트, 비즈니스 규칙, 권한 조건, 예외 케이스 등을 작성해주세요.
+      placeholder: |
+        - 대상 엔드포인트 / 채널: (예: POST /api/v1/..., WebSocket /pub/...)
+        - 비즈니스 규칙 및 권한 조건:
+        - 주요 예외 케이스:
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: 작업 내역 (Tasks)
+      description: 구현할 세부 작업 항목을 작성해주세요.
+      value: |
+        - [ ] 작업 항목 1
+        - [ ] 작업 항목 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: 완료 조건 / 기대 효과 (Acceptance Criteria)
+      description: 이 기능이 정상 동작한다고 판단할 수 있는 검증 기준과 기대 효과를 작성해주세요.
+      placeholder: |
+        - 기능이 완료되면 무엇이 달라지는지
+        - 검증 기준 (테스트 시나리오 등)
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 기타 참고 사항 (Notes)
+      description: DB 스키마 변경(Flyway), 외부 연동(FCM, Kakao, Redis 등), 관련 문서 링크 등을 작성해주세요.
+      placeholder: |
+        - Flyway 마이그레이션 필요 여부
+        - 외부 API/인프라 연동 사항
+        - 참고 문서 링크
+    validations:
+      required: false
