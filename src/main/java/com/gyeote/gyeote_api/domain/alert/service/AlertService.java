@@ -62,12 +62,13 @@ public class AlertService {
         Contact contact = contactRepository
                 .findByUser_IdAndContactUser_Id(userId, alert.getSender().getId())
                 .orElse(null);
-        boolean realtime = isRealtimeTracking(recipient, contact, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        boolean realtime = isRealtimeTracking(recipient, contact, now);
         AlertLocations latestLocation = alertLocationsRepository
                 .findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(alert.getId())
                 .orElse(null);
 
-        return toDetail(recipient, latestLocation, realtime);
+        return toDetail(recipient, latestLocation, realtime, now);
     }
 
     /**
@@ -132,7 +133,8 @@ public class AlertService {
     private ReceivedAlertDetailResponse toDetail(
             AlertRecipient recipient,
             AlertLocations latestLocation,
-            boolean realtime
+            boolean realtime,
+            LocalDateTime now
     ) {
         EmergencyAlerts alert = recipient.getEmergencyAlert();
         User sender = alert.getSender();
@@ -162,7 +164,7 @@ public class AlertService {
                 alert.getAddress(),
                 realtime,
                 recipient.getRealtimeStoppedAt(),
-                alert.getEndedAt(),
+                alert.resolveEndedAt(now),
                 recipient.getCreatedAt(),
                 recipient.getExpiresAt(),
                 locationUpdatedAt
@@ -204,7 +206,7 @@ public class AlertService {
     private boolean isRealtimeTracking(AlertRecipient recipient, Contact contact, LocalDateTime now) {
         EmergencyAlerts alert = recipient.getEmergencyAlert();
         return alert.getSender().isRealtimeLocationEnabled()
-                && alert.getEndedAt() == null
+                && !alert.isEnded(now)
                 && recipient.getArchivedAt() == null
                 && recipient.getExpiresAt().isAfter(now)
                 && !recipient.isRealtimeStopped()

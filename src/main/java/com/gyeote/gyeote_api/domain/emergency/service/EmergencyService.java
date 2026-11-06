@@ -254,7 +254,7 @@ public class EmergencyService {
         EmergencyAlerts emergencyAlert = emergencyAlertsRepository.findByIdAndSenderIdForUpdate(alertId, userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
 
-        if (emergencyAlert.getEndedAt() != null) {
+        if (emergencyAlert.isEnded(LocalDateTime.now())) {
             throw new BusinessException(CommonErrorCode.COMMON_CONFLICT);
         }
 
@@ -324,11 +324,12 @@ public class EmergencyService {
             throw new BusinessException(CommonErrorCode.COMMON_FORBIDDEN);
         }
 
-        if (emergencyAlert.getEndedAt() != null) {
+        LocalDateTime now = LocalDateTime.now();
+        if (emergencyAlert.isEnded(now)) {
             throw new BusinessException(CommonErrorCode.COMMON_CONFLICT);
         }
 
-        emergencyAlert.end(LocalDateTime.now());
+        emergencyAlert.end(now);
     }
 
     /**
