@@ -1,5 +1,6 @@
 package com.gyeote.gyeote_api.domain.emergency.controller;
 
+import com.gyeote.gyeote_api.domain.emergency.dto.CurrentEmergencyStatusResponse;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyRequest;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyResponse;
 import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateRequest;
@@ -23,6 +24,22 @@ public class EmergencyController {
 
     private final EmergencyService emergencyService;
     private final SimpMessagingTemplate messagingTemplate;
+
+    @Operation(
+            summary = "현재 긴급 호출 상태 조회",
+            description = """
+                    발신자 본인의 가장 최근 긴급 호출 상태와 백그라운드 위치 전송 필요 여부를 조회합니다.
+                    진행 중인 호출이 없거나 최신 호출이 수동 종료·24시간 경과로 만료된 경우에도 200 OK로 isActive=false, shouldSendLocation=false를 반환합니다.
+                    shouldSendLocation=true는 조회 시점 기준 안내 값이므로, 직후 소켓 전송 등이 먼저 도착하면 후속 위치 저장 요청에서 429가 발생할 수 있습니다.
+                    응답의 lastLocationUpdatedAt 및 nextLocationUpdateAt 시각은 서버 표준 시간대(Asia/Seoul, UTC+09:00) 기준 ISO-8601 로컬 시각입니다.
+                    """
+    )
+    @GetMapping("/current")
+    public ApiResponse<CurrentEmergencyStatusResponse> getCurrentEmergencyStatus(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ApiResponse.success("현재 긴급 호출 상태 조회 성공", emergencyService.getCurrentEmergencyStatus(principal.id()));
+    }
 
     @Operation(
             summary = "도움 요청 생성",

@@ -16,6 +16,8 @@ import java.util.Optional;
 public interface EmergencyAlertsRepository extends JpaRepository<EmergencyAlerts, Long> {
     Optional<EmergencyAlerts> findByIdAndSenderId(Long alertId, Long userId);
 
+    Optional<EmergencyAlerts> findFirstBySender_IdOrderByCreatedAtDescIdDesc(Long senderId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select alert

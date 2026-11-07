@@ -5,6 +5,7 @@ import com.gyeote.gyeote_api.domain.alert.entity.AlertRecipient;
 import com.gyeote.gyeote_api.domain.alert.repository.AlertRecipientRepository;
 import com.gyeote.gyeote_api.domain.contact.entity.Contact;
 import com.gyeote.gyeote_api.domain.contact.repository.ContactRepository;
+import com.gyeote.gyeote_api.domain.emergency.dto.CurrentEmergencyStatusResponse;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyRequest;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyResponse;
 import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateRequest;
@@ -89,6 +90,73 @@ public class EmergencyService {
         }
 
         return createNewEmergency(sender, latitude, longitude, address);
+    }
+
+    /**
+     * 발신자 본인의 현재 긴급 호출 상태와 백그라운드 위치 전송 필요 여부를 조회한다.
+     * 사용자의 전체 호출 중 가장 최근 1건을 조회한 뒤 종료·24시간 만료 여부, 실시간 위치 공유 설정,
+     * 마지막 위치 저장 후 최소 갱신 간격 경과 여부를 순서대로 확인한다.
+     *
+     * @param userId 조회를 요청한 발신자 ID
+     * @return 현재 긴급 호출 상태 및 위치 전송 판단 정보
+     */
+    public CurrentEmergencyStatusResponse getCurrentEmergencyStatus(Long userId) {
+        User sender = userRepository.findUserById(userId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
+
+        LocalDateTime now = LocalDateTime.now();
+        Optional<EmergencyAlerts> latestAlertOpt =
+                emergencyAlertsRepository.findFirstBySender_IdOrderByCreatedAtDescIdDesc(userId);
+
+        if (latestAlertOpt.isEmpty() || latestAlertOpt.get().isEnded(now)) {
+            return CurrentEmergencyStatusResponse.inactive(sender);
+        }
+
+        EmergencyAlerts activeAlert = latestAlertOpt.get();
+        LocalDateTime lastUpdatedAt = alertLocationsRepository
+                .findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(activeAlert.getId())
+                .map(AlertLocations::getUpdatedAt)
+                .orElse(null);
+
+        if (!sender.isRealtimeLocationEnabled()) {
+            return CurrentEmergencyStatusResponse.active(
+                    activeAlert.getId(),
+                    sender,
+                    false,
+                    lastUpdatedAt,
+                    null
+            );
+        }
+
+        if (lastUpdatedAt == null) {
+            return CurrentEmergencyStatusResponse.active(
+                    activeAlert.getId(),
+                    sender,
+                    true,
+                    null,
+                    now
+            );
+        }
+
+        LocalDateTime nextAllowedAt = lastUpdatedAt.plusSeconds(locationUpdateIntervalSeconds);
+        if (nextAllowedAt.isAfter(now)) {
+            LocalDateTime nextLocationUpdateAt = activeAlert.isEnded(nextAllowedAt) ? null : nextAllowedAt;
+            return CurrentEmergencyStatusResponse.active(
+                    activeAlert.getId(),
+                    sender,
+                    false,
+                    lastUpdatedAt,
+                    nextLocationUpdateAt
+            );
+        }
+
+        return CurrentEmergencyStatusResponse.active(
+                activeAlert.getId(),
+                sender,
+                true,
+                lastUpdatedAt,
+                now
+        );
     }
 
     private EmergencyResponse createNewEmergency(
