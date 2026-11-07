@@ -22,6 +22,7 @@ public interface EmergencyAlertsRepository extends JpaRepository<EmergencyAlerts
             from EmergencyAlerts alert
             where alert.sender.id = :senderId
               and alert.endedAt is null
+              and alert.createdAt > :cutoff
               and exists (
                     select recipient.id
                     from AlertRecipient recipient
@@ -36,6 +37,7 @@ public interface EmergencyAlertsRepository extends JpaRepository<EmergencyAlerts
     List<EmergencyAlerts> findReusableBySenderId(
             @Param("senderId") Long senderId,
             @Param("now") LocalDateTime now,
+            @Param("cutoff") LocalDateTime cutoff,
             Pageable pageable
     );
 

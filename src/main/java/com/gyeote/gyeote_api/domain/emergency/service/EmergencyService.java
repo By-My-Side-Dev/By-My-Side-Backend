@@ -78,9 +78,13 @@ public class EmergencyService {
             sender = userRepository.findByIdForUpdate(userId)
                     .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
 
-            Optional<EmergencyAlerts> reusableAlert = findReusableAlert(sender.getId(), LocalDateTime.now());
+            LocalDateTime searchNow = LocalDateTime.now();
+            Optional<EmergencyAlerts> reusableAlert = findReusableAlert(sender.getId(), searchNow);
             if (reusableAlert.isPresent()) {
-                return updateExistingFreeAlert(reusableAlert.get(), latitude, longitude, address);
+                LocalDateTime lockedNow = LocalDateTime.now();
+                if (!reusableAlert.get().isEnded(lockedNow)) {
+                    return updateExistingFreeAlert(reusableAlert.get(), latitude, longitude, address, lockedNow);
+                }
             }
         }
 
@@ -134,8 +138,9 @@ public class EmergencyService {
     }
 
     private Optional<EmergencyAlerts> findReusableAlert(Long senderId, LocalDateTime now) {
+        LocalDateTime cutoff = now.minusHours(EmergencyAlerts.EXPIRE_HOURS);
         return emergencyAlertsRepository
-                .findReusableBySenderId(senderId, now, PageRequest.of(0, 1))
+                .findReusableBySenderId(senderId, now, cutoff, PageRequest.of(0, 1))
                 .stream()
                 .findFirst();
     }
@@ -144,9 +149,9 @@ public class EmergencyService {
             EmergencyAlerts emergencyAlert,
             BigDecimal latitude,
             BigDecimal longitude,
-            String address
+            String address,
+            LocalDateTime now
     ) {
-        LocalDateTime now = LocalDateTime.now();
         emergencyAlert.updateLocation(latitude, longitude, address);
 
         alertLocationsRepository.findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(emergencyAlert.getId())
