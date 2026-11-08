@@ -55,6 +55,15 @@ public interface EmergencyAlertsRepository extends JpaRepository<EmergencyAlerts
             @Param("userId") Long userId
     );
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select alert
+            from EmergencyAlerts alert
+            where alert.sender.id = :senderId
+              and alert.endedAt is null
+            """)
+    List<EmergencyAlerts> findUnendedAlertsBySenderIdForUpdate(@Param("senderId") Long senderId);
+
     boolean existsByIdAndSenderId(Long alertId, Long userId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
