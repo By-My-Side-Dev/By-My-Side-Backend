@@ -113,49 +113,34 @@ public class EmergencyService {
         }
 
         EmergencyAlerts activeAlert = latestAlertOpt.get();
+        if (!sender.isRealtimeLocationEnabled()) {
+            return CurrentEmergencyStatusResponse.active(
+                    activeAlert.getId(),
+                    sender,
+                    false
+            );
+        }
+
         LocalDateTime lastUpdatedAt = alertLocationsRepository
                 .findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(activeAlert.getId())
                 .map(AlertLocations::getUpdatedAt)
                 .orElse(null);
 
-        if (!sender.isRealtimeLocationEnabled()) {
-            return CurrentEmergencyStatusResponse.active(
-                    activeAlert.getId(),
-                    sender,
-                    false,
-                    lastUpdatedAt,
-                    null
-            );
-        }
-
         if (lastUpdatedAt == null) {
             return CurrentEmergencyStatusResponse.active(
                     activeAlert.getId(),
                     sender,
-                    true,
-                    null,
-                    now
+                    true
             );
         }
 
         LocalDateTime nextAllowedAt = lastUpdatedAt.plusSeconds(locationUpdateIntervalSeconds);
-        if (nextAllowedAt.isAfter(now)) {
-            LocalDateTime nextLocationUpdateAt = activeAlert.isEnded(nextAllowedAt) ? null : nextAllowedAt;
-            return CurrentEmergencyStatusResponse.active(
-                    activeAlert.getId(),
-                    sender,
-                    false,
-                    lastUpdatedAt,
-                    nextLocationUpdateAt
-            );
-        }
+        boolean shouldSendLocation = !nextAllowedAt.isAfter(now);
 
         return CurrentEmergencyStatusResponse.active(
                 activeAlert.getId(),
                 sender,
-                true,
-                lastUpdatedAt,
-                now
+                shouldSendLocation
         );
     }
 
