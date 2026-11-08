@@ -91,7 +91,8 @@ class EmergencyExpirationTest {
                 alertRecipientRepository,
                 contactRepository,
                 reverseGeocodingService,
-                fcmOutboxService
+                fcmOutboxService,
+                mock(org.springframework.transaction.PlatformTransactionManager.class)
         );
 
         Long userId = 10L;
