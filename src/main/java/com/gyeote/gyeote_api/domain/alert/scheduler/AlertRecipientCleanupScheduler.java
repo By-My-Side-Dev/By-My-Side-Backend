@@ -1,6 +1,8 @@
 package com.gyeote.gyeote_api.domain.alert.scheduler;
 
 import com.gyeote.gyeote_api.domain.alert.repository.AlertRecipientRepository;
+import com.gyeote.gyeote_api.domain.emergency.entity.EmergencyAlerts;
+import com.gyeote.gyeote_api.domain.emergency.repository.EmergencyAlertsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,6 +17,7 @@ import java.time.LocalDateTime;
 public class AlertRecipientCleanupScheduler {
 
     private final AlertRecipientRepository alertRecipientRepository;
+    private final EmergencyAlertsRepository emergencyAlertsRepository;
 
     /**
      * 서버 기본 시간대를 기준으로 매일 01:00에 수신 알림 보관 및 삭제 작업을 실행한다.
@@ -29,12 +32,15 @@ public class AlertRecipientCleanupScheduler {
     @Transactional
     public void archiveAndDeleteExpiredRecipients() {
         LocalDateTime now = LocalDateTime.now();
+        int endedAlertCount = emergencyAlertsRepository.endExpiredAlerts(
+                now.minusHours(EmergencyAlerts.EXPIRE_HOURS)
+        );
         int archivedCount = alertRecipientRepository.archiveExpired(now);
         int deletedCount = alertRecipientRepository.deleteExpired(now);
 
-        if (archivedCount > 0 || deletedCount > 0) {
-            log.info("Alert recipient cleanup completed: archived={}, deleted={}",
-                    archivedCount, deletedCount);
+        if (endedAlertCount > 0 || archivedCount > 0 || deletedCount > 0) {
+            log.info("Alert recipient cleanup completed: endedAlerts={}, archived={}, deleted={}",
+                    endedAlertCount, archivedCount, deletedCount);
         }
     }
 }

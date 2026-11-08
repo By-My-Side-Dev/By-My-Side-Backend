@@ -1,6 +1,7 @@
 package com.gyeote.gyeote_api.global.security;
 
 import com.gyeote.gyeote_api.domain.alert.repository.AlertRecipientRepository;
+import com.gyeote.gyeote_api.domain.emergency.entity.EmergencyAlerts;
 import com.gyeote.gyeote_api.global.auth.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -92,10 +93,12 @@ public class WebSocketJwtChannelInterceptor implements ChannelInterceptor {
         }
 
         Long alertId = Long.parseLong(matcher.group(1));
+        LocalDateTime now = LocalDateTime.now();
         if (!alertRecipientRepository.existsActiveLocationSubscription(
                 alertId,
                 principal.id(),
-                LocalDateTime.now()
+                now,
+                now.minusHours(EmergencyAlerts.EXPIRE_HOURS)
         )) {
             throw new AccessDeniedException("Emergency location subscription is not allowed.");
         }

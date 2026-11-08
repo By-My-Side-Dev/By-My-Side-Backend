@@ -112,6 +112,7 @@ public interface AlertRecipientRepository extends JpaRepository<AlertRecipient, 
               and recipient.expiresAt > :now
               and recipient.realtimeStoppedAt is null
               and recipient.emergencyAlert.endedAt is null
+              and recipient.emergencyAlert.createdAt > :cutoff
               and recipient.emergencyAlert.sender.realtimeLocationEnabled = true
               and exists (
                     select contact.id
@@ -124,6 +125,7 @@ public interface AlertRecipientRepository extends JpaRepository<AlertRecipient, 
     boolean existsActiveLocationSubscription(
             @Param("alertId") Long alertId,
             @Param("receiverId") Long receiverId,
-            @Param("now") LocalDateTime now
+            @Param("now") LocalDateTime now,
+            @Param("cutoff") LocalDateTime cutoff
     );
 }

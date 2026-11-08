@@ -5,6 +5,7 @@ import com.gyeote.gyeote_api.domain.alert.entity.AlertRecipient;
 import com.gyeote.gyeote_api.domain.alert.repository.AlertRecipientRepository;
 import com.gyeote.gyeote_api.domain.contact.entity.Contact;
 import com.gyeote.gyeote_api.domain.contact.repository.ContactRepository;
+import com.gyeote.gyeote_api.domain.emergency.dto.CurrentEmergencyStatusResponse;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyRequest;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyResponse;
 import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateRequest;
@@ -21,25 +22,38 @@ import com.gyeote.gyeote_api.domain.user.repository.UserRepository;
 import com.gyeote.gyeote_api.domain.notification.service.FcmOutboxService;
 import com.gyeote.gyeote_api.global.exception.BusinessException;
 import com.gyeote.gyeote_api.global.exception.CommonErrorCode;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class EmergencyService {
 
     // 소수점 저장 길이(7자리)
     private static final int GPS_SCALE = 7;
+    private static final int MAX_LOCK_RETRY_ATTEMPTS = 3;
+    private static final long LOCK_RETRY_BACKOFF_MILLIS = 25L;
+    private static final int MYSQL_DEADLOCK_ERROR_CODE = 1213;
+    private static final String SQL_STATE_SERIALIZATION_FAILURE = "40001";
 
     private final UserRepository userRepository;
     private final EmergencyAlertsRepository emergencyAlertsRepository;
@@ -48,43 +62,186 @@ public class EmergencyService {
     private final ContactRepository contactRepository;
     private final ReverseGeocodingService reverseGeocodingService;
     private final FcmOutboxService fcmOutboxService;
+    private final TransactionTemplate requiresNewTransactionTemplate;
 
     // 15초 주기로 위도, 경도를 받는다.
     @Value("${emergency.location-update-interval-seconds:15}")
     private long locationUpdateIntervalSeconds;
 
+    public EmergencyService(
+            UserRepository userRepository,
+            EmergencyAlertsRepository emergencyAlertsRepository,
+            AlertLocationsRepository alertLocationsRepository,
+            AlertRecipientRepository alertRecipientRepository,
+            ContactRepository contactRepository,
+            ReverseGeocodingService reverseGeocodingService,
+            FcmOutboxService fcmOutboxService,
+            PlatformTransactionManager transactionManager
+    ) {
+        this.userRepository = userRepository;
+        this.emergencyAlertsRepository = emergencyAlertsRepository;
+        this.alertLocationsRepository = alertLocationsRepository;
+        this.alertRecipientRepository = alertRecipientRepository;
+        this.contactRepository = contactRepository;
+        this.reverseGeocodingService = reverseGeocodingService;
+        this.fcmOutboxService = fcmOutboxService;
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.requiresNewTransactionTemplate = template;
+    }
+
     /**
      * 사용자의 현재 위치로 긴급 호출을 생성한다.
+     * 외부 역지오코딩 호출은 트랜잭션 및 잠금 구간 밖에서 1회만 수행하고,
+     * 서로 지인인 사용자 간 동시 호출로 인한 DB 교착(MySQL 1213 / SQLState 40001) 발생 시에만 새 트랜잭션에서 제한적으로 재시도한다.
      * 무료 사용자는 만료되지 않은 가장 최근 알림이 있으면 해당 알림의 위치와 주소만 갱신하고,
      * 유효한 알림이 없으면 활성 상태인 지인들을 수신자로 등록한 새 알림을 생성한다.
-     * 유료 사용자는 호출할 때마다 새 알림을 생성한다.
+     * 유료 사용자는 호출할 때마다 새 알림을 생성하며, 새 알림이 생성될 때 기존에 미종료 상태였던 호출은 종료 처리한다.
      *
      * @param userId 긴급 호출을 생성하는 사용자 ID
      * @param request 최초 위도와 경도
      * @return 생성된 긴급 호출 ID를 포함한 응답
      * @throws BusinessException 사용자를 찾을 수 없거나 호출을 받을 활성 지인이 없는 경우
      */
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EmergencyResponse createEmergency(Long userId, EmergencyRequest request) {
-        User sender = userRepository.findUserById(userId)
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
+        if (userRepository.findUserById(userId).isEmpty()) {
+            throw new BusinessException(CommonErrorCode.COMMON_NOT_FOUND);
+        }
 
         BigDecimal latitude = normalizeCoordinate(request.latitude());
         BigDecimal longitude = normalizeCoordinate(request.longitude());
         String address = reverseGeocodingService.findAddress(latitude, longitude)
                 .orElse(null);
 
-        if (sender.getPlan() == UserPlan.FREE) {
-            sender = userRepository.findByIdForUpdate(userId)
-                    .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
+        return executeWithDeadlockRetry(
+                userId,
+                () -> createEmergencyInTransaction(userId, latitude, longitude, address)
+        );
+    }
 
-            Optional<EmergencyAlerts> reusableAlert = findReusableAlert(sender.getId(), LocalDateTime.now());
+    private EmergencyResponse createEmergencyInTransaction(
+            Long userId,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            String address
+    ) {
+        User sender = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
+
+        if (sender.getPlan() == UserPlan.FREE) {
+            LocalDateTime searchNow = LocalDateTime.now();
+            Optional<EmergencyAlerts> reusableAlert = findReusableAlert(sender.getId(), searchNow);
             if (reusableAlert.isPresent()) {
-                return updateExistingFreeAlert(reusableAlert.get(), latitude, longitude, address);
+                LocalDateTime lockedNow = LocalDateTime.now();
+                if (!reusableAlert.get().isEnded(lockedNow)) {
+                    return updateExistingFreeAlert(reusableAlert.get(), latitude, longitude, address, lockedNow);
+                }
             }
         }
 
         return createNewEmergency(sender, latitude, longitude, address);
+    }
+
+    private EmergencyResponse executeWithDeadlockRetry(
+            Long userId,
+            Supplier<EmergencyResponse> action
+    ) {
+        for (int attempt = 1; attempt <= MAX_LOCK_RETRY_ATTEMPTS; attempt++) {
+            try {
+                return requiresNewTransactionTemplate.execute(status -> action.get());
+            } catch (PessimisticLockingFailureException ex) {
+                if (!isDeadlockFailure(ex) || attempt == MAX_LOCK_RETRY_ATTEMPTS) {
+                    throw ex;
+                }
+                log.warn(
+                        "event=emergency_create_deadlock_retry userId={} attempt={}/{}",
+                        userId,
+                        attempt,
+                        MAX_LOCK_RETRY_ATTEMPTS
+                );
+                sleepBeforeRetry(attempt);
+            }
+        }
+        throw new IllegalStateException("Unreachable retry loop exit");
+    }
+
+    private boolean isDeadlockFailure(Throwable throwable) {
+        if (!(throwable instanceof CannotAcquireLockException)) {
+            return false;
+        }
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SQLException sqlException) {
+                if (sqlException.getErrorCode() == MYSQL_DEADLOCK_ERROR_CODE
+                        || SQL_STATE_SERIALIZATION_FAILURE.equals(sqlException.getSQLState())) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private void sleepBeforeRetry(int attempt) {
+        try {
+            Thread.sleep(LOCK_RETRY_BACKOFF_MILLIS * attempt);
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while retrying emergency creation", interruptedException);
+        }
+    }
+
+    /**
+     * 발신자 본인의 현재 긴급 호출 상태와 백그라운드 위치 전송 필요 여부를 조회한다.
+     * 사용자의 전체 호출 중 가장 최근 1건을 조회한 뒤 종료·24시간 만료 여부, 실시간 위치 공유 설정,
+     * 마지막 위치 저장 후 최소 갱신 간격 경과 여부를 순서대로 확인한다.
+     *
+     * @param userId 조회를 요청한 발신자 ID
+     * @return 현재 긴급 호출 상태 및 위치 전송 판단 정보
+     */
+    public CurrentEmergencyStatusResponse getCurrentEmergencyStatus(Long userId) {
+        User sender = userRepository.findUserById(userId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
+
+        LocalDateTime now = LocalDateTime.now();
+        Optional<EmergencyAlerts> latestAlertOpt =
+                emergencyAlertsRepository.findFirstBySender_IdOrderByCreatedAtDescIdDesc(userId);
+
+        if (latestAlertOpt.isEmpty() || latestAlertOpt.get().isEnded(now)) {
+            return CurrentEmergencyStatusResponse.inactive(sender);
+        }
+
+        EmergencyAlerts activeAlert = latestAlertOpt.get();
+        if (!sender.isRealtimeLocationEnabled()) {
+            return CurrentEmergencyStatusResponse.active(
+                    activeAlert.getId(),
+                    sender,
+                    false
+            );
+        }
+
+        LocalDateTime lastUpdatedAt = alertLocationsRepository
+                .findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(activeAlert.getId())
+                .map(AlertLocations::getUpdatedAt)
+                .orElse(null);
+
+        if (lastUpdatedAt == null) {
+            return CurrentEmergencyStatusResponse.active(
+                    activeAlert.getId(),
+                    sender,
+                    true
+            );
+        }
+
+        LocalDateTime nextAllowedAt = lastUpdatedAt.plusSeconds(locationUpdateIntervalSeconds);
+        boolean shouldSendLocation = !nextAllowedAt.isAfter(now);
+
+        return CurrentEmergencyStatusResponse.active(
+                activeAlert.getId(),
+                sender,
+                shouldSendLocation
+        );
     }
 
     private EmergencyResponse createNewEmergency(
@@ -102,6 +259,9 @@ public class EmergencyService {
         if (receivers.isEmpty()) {
             throw new BusinessException(AlertErrorCode.ALERT_NO_CONTACTS);
         }
+
+        LocalDateTime now = LocalDateTime.now();
+        endUnendedAlerts(sender.getId(), now);
 
         EmergencyAlerts emergencyAlert = EmergencyAlerts.builder()
                 .sender(sender)
@@ -133,9 +293,18 @@ public class EmergencyService {
         return EmergencyResponse.from(emergencyAlert.getId(), emergencyAlert.getAddress());
     }
 
+    private void endUnendedAlerts(Long senderId, LocalDateTime now) {
+        List<EmergencyAlerts> unendedAlerts = emergencyAlertsRepository.findUnendedAlertsBySenderIdForUpdate(senderId);
+        for (EmergencyAlerts alert : unendedAlerts) {
+            LocalDateTime resolvedEndedAt = alert.resolveEndedAt(now);
+            alert.end(resolvedEndedAt != null ? resolvedEndedAt : now);
+        }
+    }
+
     private Optional<EmergencyAlerts> findReusableAlert(Long senderId, LocalDateTime now) {
+        LocalDateTime cutoff = now.minusHours(EmergencyAlerts.EXPIRE_HOURS);
         return emergencyAlertsRepository
-                .findReusableBySenderId(senderId, now, PageRequest.of(0, 1))
+                .findReusableBySenderId(senderId, now, cutoff, PageRequest.of(0, 1))
                 .stream()
                 .findFirst();
     }
@@ -144,9 +313,9 @@ public class EmergencyService {
             EmergencyAlerts emergencyAlert,
             BigDecimal latitude,
             BigDecimal longitude,
-            String address
+            String address,
+            LocalDateTime now
     ) {
-        LocalDateTime now = LocalDateTime.now();
         emergencyAlert.updateLocation(latitude, longitude, address);
 
         alertLocationsRepository.findFirstByEmergencyAlert_IdOrderByUpdatedAtDescIdDesc(emergencyAlert.getId())
@@ -254,7 +423,7 @@ public class EmergencyService {
         EmergencyAlerts emergencyAlert = emergencyAlertsRepository.findByIdAndSenderIdForUpdate(alertId, userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.COMMON_NOT_FOUND));
 
-        if (emergencyAlert.getEndedAt() != null) {
+        if (emergencyAlert.isEnded(LocalDateTime.now())) {
             throw new BusinessException(CommonErrorCode.COMMON_CONFLICT);
         }
 
@@ -324,11 +493,12 @@ public class EmergencyService {
             throw new BusinessException(CommonErrorCode.COMMON_FORBIDDEN);
         }
 
-        if (emergencyAlert.getEndedAt() != null) {
+        LocalDateTime now = LocalDateTime.now();
+        if (emergencyAlert.isEnded(now)) {
             throw new BusinessException(CommonErrorCode.COMMON_CONFLICT);
         }
 
-        emergencyAlert.end(LocalDateTime.now());
+        emergencyAlert.end(now);
     }
 
     /**

@@ -16,6 +16,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class EmergencyAlerts {
 
+    /** 긴급 호출 생성 후 24시간이 지나면 자동으로 종료된다. */
+    public static final long EXPIRE_HOURS = 24;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -65,6 +68,20 @@ public class EmergencyAlerts {
 
     public void end(LocalDateTime endedAt) {
         this.endedAt = endedAt;
+    }
+
+    public boolean isEnded(LocalDateTime now) {
+        return resolveEndedAt(now) != null;
+    }
+
+    public LocalDateTime resolveEndedAt(LocalDateTime now) {
+        if (endedAt != null) {
+            return endedAt;
+        }
+        if (createdAt != null && !createdAt.plusHours(EXPIRE_HOURS).isAfter(now)) {
+            return createdAt.plusHours(EXPIRE_HOURS);
+        }
+        return null;
     }
 
     public void updateLocation(

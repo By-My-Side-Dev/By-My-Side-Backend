@@ -1,5 +1,6 @@
 package com.gyeote.gyeote_api.domain.emergency.controller;
 
+import com.gyeote.gyeote_api.domain.emergency.dto.CurrentEmergencyStatusResponse;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyRequest;
 import com.gyeote.gyeote_api.domain.emergency.dto.EmergencyResponse;
 import com.gyeote.gyeote_api.domain.emergency.dto.LocationUpdateRequest;
@@ -25,6 +26,21 @@ public class EmergencyController {
     private final SimpMessagingTemplate messagingTemplate;
 
     @Operation(
+            summary = "현재 긴급 호출 상태 조회",
+            description = """
+                    발신자 본인의 가장 최근 긴급 호출 상태와 백그라운드 위치 전송 필요 여부를 조회합니다.
+                    진행 중인 호출이 없거나 최신 호출이 수동 종료·24시간 경과로 만료된 경우에도 200 OK로 alertId=null, shouldSendLocation=false를 반환합니다.
+                    shouldSendLocation=true는 조회 시점 기준 안내 값이므로, 직후 소켓 전송 등이 먼저 도착하면 후속 위치 저장 요청에서 429가 발생할 수 있습니다.
+                    """
+    )
+    @GetMapping("/current")
+    public ApiResponse<CurrentEmergencyStatusResponse> getCurrentEmergencyStatus(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ApiResponse.success("현재 긴급 호출 상태 조회 성공", emergencyService.getCurrentEmergencyStatus(principal.id()));
+    }
+
+    @Operation(
             summary = "도움 요청 생성",
             description = """
                     사용자가 도움 요청 버튼을 누르면 긴급 호출을 생성합니다.
@@ -33,7 +49,7 @@ public class EmergencyController {
                     응답에는 알림 ID와 역지오코딩된 주소가 포함됩니다.
                     무료 사용자는 만료되지 않고 종료되지 않은 최근 알림이 있으면 같은 알림의 좌표와 주소만 갱신합니다.
                     이때 기존 수신자와 만료 시각을 유지하고 FCM 알림을 다시 발송하지 않습니다.
-                    재사용 가능한 알림이 없거나 유료 사용자인 경우 새 알림과 최초 위치 행을 생성합니다.
+                    재사용 가능한 알림이 없거나 유료 사용자인 경우, 기존에 미종료 상태였던 호출을 자동 종료 처리한 뒤 새 알림과 최초 위치 행을 생성합니다.
                     """
     )
     @PostMapping

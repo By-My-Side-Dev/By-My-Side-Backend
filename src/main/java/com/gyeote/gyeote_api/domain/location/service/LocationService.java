@@ -46,8 +46,8 @@ public class LocationService {
      * @return 만료되거나 보관되지 않은 긴급 알림의 지도 마커 목록
      */
     public List<AlertMapMarkerResponse> getReceivedAlertMapMarkers(Long userId) {
-
-        List<AlertRecipient> recipients = alertRecipientRepository.findActiveByReceiverId(userId, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        List<AlertRecipient> recipients = alertRecipientRepository.findActiveByReceiverId(userId, now);
 
         if (recipients.isEmpty()) {
             return List.of();
@@ -57,7 +57,7 @@ public class LocationService {
         Map<Long, Contact> contacts = findContacts(userId, recipients);
 
         return recipients.stream()
-                .map(recipient -> toMarkerResponse(recipient, latestLocations, contacts))
+                .map(recipient -> toMarkerResponse(recipient, latestLocations, contacts, now))
                 .toList();
     }
 
@@ -94,7 +94,7 @@ public class LocationService {
             ));
         }
 
-        return new AlertPathResponse(alert.getId(), alert.getEndedAt(), locations);
+        return new AlertPathResponse(alert.getId(), alert.resolveEndedAt(LocalDateTime.now()), locations);
     }
 
     /**
@@ -104,16 +104,18 @@ public class LocationService {
      * @param recipient 변환할 알림 수신 정보
      * @param latestLocations 알림 아이디별 최신 위치 정보
      * @param contacts 발신자 아이디별 연락처 정보
+     * @param now 추적 가능 시간을 판단할 기준 시각
      * @return 지도에 표시할 알림 마커 응답
      */
     private AlertMapMarkerResponse toMarkerResponse(
             AlertRecipient recipient,
             Map<Long, AlertLocations> latestLocations,
-            Map<Long, Contact> contacts
+            Map<Long, Contact> contacts,
+            LocalDateTime now
     ) {
         EmergencyAlerts alert = recipient.getEmergencyAlert();
         User sender = alert.getSender();
-        boolean realtime = isRealtimeTracking(recipient, contacts.get(sender.getId()));
+        boolean realtime = isRealtimeTracking(recipient, contacts.get(sender.getId()), now);
         AlertLocations latestLocation = latestLocations.get(alert.getId());
         String profileImageUrl = profileImageUrlResolver.resolve(sender);
 
@@ -139,12 +141,13 @@ public class LocationService {
      *
      * @param recipient 확인할 알림 수신 정보
      * @param contact 발신자와 연결된 연락처 정보
+     * @param now 추적 가능 시간을 판단할 기준 시각
      * @return 실시간 위치를 표시할 수 있으면 {@code true}, 아니면 {@code false}
      */
-    private boolean isRealtimeTracking(AlertRecipient recipient, Contact contact) {
+    private boolean isRealtimeTracking(AlertRecipient recipient, Contact contact, LocalDateTime now) {
         EmergencyAlerts alert = recipient.getEmergencyAlert();
         return alert.getSender().isRealtimeLocationEnabled()
-                && alert.getEndedAt() == null
+                && !alert.isEnded(now)
                 && !recipient.isRealtimeStopped()
                 && contact != null
                 && contact.isReceiveRealtime();
