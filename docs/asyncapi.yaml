@@ -1,7 +1,7 @@
 asyncapi: 3.1.0
 info:
   title: 곁에 실시간 위치 WebSocket API
-  version: 1.2.0
+  version: 1.3.0
   description: |
     긴급 호출 발신자의 위치를 실시간으로 전달하는 STOMP over WebSocket API입니다.
 
@@ -17,12 +17,19 @@ info:
     이후 WebSocket 위치는 발신자의 `realtimeLocationEnabled` 설정이 켜진 동안에만 전송되며,
     설정을 끄면 진행 중인 호출에서도 다음 위치 갱신부터 즉시 거부됩니다.
 
+    호출은 수동 종료되거나 생성 후 24시간에 도달하면 위치 갱신과 신규 구독이 거부됩니다.
+    정리 스케줄러가 아직 종료 시각을 기록하지 않았어도 동일하게 만료로 판단합니다.
+    발신자는 REST `GET /api/v1/emergency-alerts/current`로 `alertId`, `plan`, `shouldSendLocation`을 확인할 수 있습니다.
+    호출 없음·종료·만료는 `alertId=null`, `shouldSendLocation=false`이며, 유효한 호출도 공유 OFF 또는 갱신 간격 미충족이면 전송하지 않습니다.
+    조회 결과는 안내 값이므로 직후 다른 위치가 저장되면 갱신 간격 제한 오류가 발생할 수 있습니다.
+
     서버와 클라이언트는 20초 간격으로 양방향 STOMP heartbeat를 교환합니다.
     클라이언트가 heartbeat를 지원하고 `CONNECT` 프레임에서 송수신 주기를 제안해야 실제 주기가 협상됩니다.
     약속된 시간 동안 heartbeat 또는 실제 메시지가 수신되지 않으면 상대방은 연결 실패로 판단하고 재연결해야 합니다.
 
     WebSocket 연결은 heartbeat 교환 여부와 관계없이 연결 시점부터 최대 1일(24시간)간 유지됩니다.
     24시간이 지나면 서버가 정상 종료 close frame을 전송하고 연결을 종료하므로, 계속 사용하려면 클라이언트가 다시 연결하고 필요한 채널을 재구독해야 합니다.
+    소켓 재연결은 호출 생성 시각 기준 24시간 유효기간을 연장하지 않습니다.
 
     `CONNECT` 인증 실패와 `SUBSCRIBE` 권한 실패는 STOMP `ERROR` 프레임으로 처리됩니다.
     `/topic` 또는 `/queue`로 직접 `SEND`하는 요청은 허용되지 않습니다.
@@ -75,6 +82,7 @@ channels:
       REST `POST /api/v1/emergency-alerts/{alertId}/location/paid`로도 전송할 수 있으며, 결과는 동일한 `/topic/emergency-alerts/{alertId}/location`으로 브로드캐스트됩니다.
       호출 발신자의 사용자 플랜이 `PAID`일 때만 사용할 수 있습니다.
       발신자의 실시간 위치 공유 설정이 켜져 있어야 합니다.
+      본인 소유의 미종료 호출이어야 하며, 호출 생성 후 24시간에 도달하면 `COMMON_CONFLICT`로 거절됩니다.
       좌표를 수신할 때마다 위치 이력을 새 행으로 추가합니다.
       서버는 기본 15초의 최소 갱신 간격을 적용하며, 좌표를 소수점 이하 7자리로 반올림해 저장합니다.
     servers:
@@ -95,6 +103,7 @@ channels:
       REST `POST /api/v1/emergency-alerts/{alertId}/location/free`로도 전송할 수 있으며, 결과는 동일한 `/topic/emergency-alerts/{alertId}/location`으로 브로드캐스트됩니다.
       호출 발신자의 사용자 플랜이 `FREE`일 때만 사용할 수 있습니다.
       발신자의 실시간 위치 공유 설정이 켜져 있어야 합니다.
+      본인 소유의 미종료 호출이어야 하며, 호출 생성 후 24시간에 도달하면 `COMMON_CONFLICT`로 거절됩니다.
       기존 최신 위치 행의 좌표를 갱신하며, 위치 행이 없는 예외적인 경우에만 최초 행을 생성합니다.
       서버는 기본 15초의 최소 갱신 간격을 적용하며, 좌표를 소수점 이하 7자리로 반올림해 저장합니다.
     servers:
@@ -112,8 +121,9 @@ channels:
     title: 긴급 호출 위치 구독
     description: |
       서버가 갱신된 좌표를 브로드캐스트하는 STOMP `SUBSCRIBE` 목적지입니다.
-      1회성 호출은 유효한 수신자가 구독할 수 있습니다.
-      실시간 호출은 유효한 수신자이면서 실시간 위치 수신을 허용한 사용자만 구독할 수 있습니다.
+      본인 수신자 행이 미보관·미만료·실시간 수신 미중단 상태여야 합니다.
+      호출이 미종료이고 생성 후 24시간이 지나지 않았으며, 발신자의 공유 설정과 수신자 방향 지인의 실시간 수신 설정이 모두 켜져 있어야 합니다.
+      인가는 SUBSCRIBE 시점에 수행되며, 이후 호출 종료·만료 시 기존 구독을 즉시 해제하는 이벤트는 제공하지 않습니다.
     servers:
       - $ref: "#/servers/local"
       - $ref: "#/servers/production"
@@ -226,7 +236,7 @@ components:
             code: COMMON_TOO_MANY_REQUESTS
             message: 요청 횟수가 너무 많습니다.
             data: null
-        - name: 종료된 호출
+        - name: 수동 종료 또는 생성 후 24시간 만료된 호출
           payload:
             code: COMMON_CONFLICT
             message: 이미 처리되었거나 중복된 요청입니다.
