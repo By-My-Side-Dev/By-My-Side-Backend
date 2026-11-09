@@ -33,7 +33,7 @@ public class UserController {
 
     @Operation(
             summary = "실시간 위치 전송 토글",
-            description = "내 실시간 위치 정보 토글 형태로 변경하도록 합니다."
+            description = "실시간 위치 공유 설정을 변경합니다. 신규 일반·소셜 계정의 기본값은 false이며, 사용자가 활성화하면 이후 위치 갱신을 허용합니다. 기존 계정의 설정은 유지됩니다. 모바일 OS 위치 권한은 앱에서 별도로 확인해야 합니다."
     )
     @PutMapping("/settings/realtime-location")
     public ApiResponse<RealtimeLocationSettingResponse> updateRealtimeLocation(
