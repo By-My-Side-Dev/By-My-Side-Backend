@@ -66,9 +66,22 @@ class SignupServiceTest {
         });
 
         verify(userPhoneRepository, org.mockito.Mockito.times(2)).save(any(UserPhone.class));
-        ArgumentCaptor<User> users = ArgumentCaptor.forClass(User.class);
-        verify(userRepository, org.mockito.Mockito.times(2)).saveAndFlush(users.capture());
-        users.getAllValues().forEach(user -> assertFalse(user.isRealtimeLocationEnabled()));
+    }
+
+    @Test
+    void newRegularAccountStartsWithRealtimeLocationDisabled() {
+        SignupService service = new SignupService(userRepository, userPhoneRepository, passwordEncoder,
+                phoneCryptoService, onboardingTokenProvider, authService, emailVerificationService);
+        when(phoneCryptoService.normalize("01012345678")).thenReturn("01012345678");
+        when(phoneCryptoService.hash("01012345678")).thenReturn("phone-hash");
+        when(phoneCryptoService.encrypt("01012345678")).thenReturn(new byte[]{1, 2, 3});
+        when(passwordEncoder.encode("password123")).thenReturn("encoded-password");
+
+        service.signup(request("regular-user", "01012345678"));
+
+        ArgumentCaptor<User> user = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).saveAndFlush(user.capture());
+        assertFalse(user.getValue().isRealtimeLocationEnabled());
     }
 
     @Test
