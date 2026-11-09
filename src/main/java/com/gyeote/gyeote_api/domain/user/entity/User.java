@@ -62,7 +62,7 @@ public class User {
     private Long version;
 
     @Column(name = "realtime_location_enabled", nullable = false)
-    private boolean realtimeLocationEnabled = true;
+    private boolean realtimeLocationEnabled = false;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
