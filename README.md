@@ -1,81 +1,93 @@
-# 내 곁에 (위급 상황 실시간 위치 공유 안심 서비스)
+# 내 곁에 Backend
 
-"위급한 순간, 원터치로 내 위치를 가장 믿을 수 있는 사람에게"
+**위급한 순간, 원터치로 내 위치를 가장 믿을 수 있는 사람에게**
 
----
+[![Deploy](https://img.shields.io/github/actions/workflow/status/By-My-Side-Dev/By-My-Side-Backend/deploy.yml?branch=main&style=flat-square&label=Deploy)](https://github.com/By-My-Side-Dev/By-My-Side-Backend/actions/workflows/deploy.yml)
+![Java](https://img.shields.io/badge/Java-17-007396?style=flat-square&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.1-6DB33F?style=flat-square&logo=springboot&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8.4-4479A1?style=flat-square&logo=mysql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis&logoColor=white)
 
-## 목차
+[개요](#개요) | [주요 기능](#주요-기능) | [긴급 호출 흐름](#긴급-호출-흐름) | [아키텍처](#아키텍처) | [기술 스택](#기술-스택) | [API 문서](#api-문서)
 
-- [프로젝트 개요](#프로젝트-개요)
-- [팀원 소개](#팀원-소개)
-- [주요 기능](#주요-기능)
-- [기술 스택](#기술-스택)
-- [백엔드 프로젝트 구조](#백엔드-프로젝트-구조)
-- [API 문서](#api-문서)
-- [시스템 아키텍처](#시스템-아키텍처)
-- [Repositories](#repositories)
+**내 곁에**는 위기 상황에서 도움 요청 버튼 한 번으로 미리 연결해 둔 지인에게 긴급 알림과 현재 위치를 전달하고, 호출이 이어지는 동안 실시간 위치를 공유하는 안심 보호 서비스입니다. 이 저장소는 인증, 지인 연결, 긴급 호출, 실시간 위치 전송, 푸시 알림을 담당하는 백엔드 API 서버입니다.
 
----
+> [!NOTE]
+> 모바일 앱은 [By-My-Side-App](https://github.com/By-My-Side-Dev/By-My-Side-App) 저장소에서 관리합니다.
 
-## 프로젝트 개요
+## 개요
 
-폭력, 납치, 급박한 신체 위협 같은 위기 상황에서는 피해자가 직접 112에 전화를 걸거나 상황을 말로 설명하기 어렵습니다. 반대로 기존 위치 공유 앱은 평상시에도 위치를 계속 수집해 사생활 침해 우려와 배터리 소모가 큽니다. 또한 실제 위기 상황에서 나를 도와줄 수 있는 가족, 친구와의 신뢰 기반 연결망도 부족합니다.
+폭력, 납치, 급박한 신체 위협 같은 상황에서는 피해자가 직접 112에 전화하거나 상황을 말로 설명하기 어렵습니다. 반면 기존 위치 공유 앱은 평상시에도 위치를 계속 수집해 사생활 침해와 배터리 소모 부담이 큽니다.
 
-**내 곁에**는 사용자가 도움 요청 버튼을 한 번 누르면 미리 연결해 둔 지인에게 긴급 알림과 현재 위치를 즉시 전달하고, 호출이 진행되는 동안 실시간 위치를 공유해 지인이 신고 등 대리 대응을 빠르게 할 수 있도록 돕는 실시간 안심 보호 서비스입니다.
+내 곁에는 다음 원칙으로 이 문제를 풉니다.
 
-### 주요 특징
-
-- **필요할 때만 위치 공유**: 평상시에는 위치를 수집하지 않고, 긴급 호출 시에만 위치를 전송합니다.
-- **원터치 긴급 전파**: 호출 즉시 연결된 지인에게 고우선순위 FCM 푸시와 주소 정보가 전달됩니다.
-- **실시간 위치 추적**: STOMP WebSocket으로 발신자의 위치를 수신자에게 실시간 전달합니다.
-- **신뢰 기반 지인 네트워크**: 초대와 수락으로 연결된 지인끼리만 호출과 위치를 주고받습니다.
-- **요금제별 위치 엔진**: `FREE`는 최신 위치 한 건, `PAID`는 이동 경로 전체를 제공합니다.
+- **필요할 때만 위치 공유**: 평상시에는 위치를 수집하지 않고, 긴급 호출이 시작될 때만 위치를 전송합니다.
+- **원터치 긴급 전파**: 호출 즉시 연결된 지인에게 고우선순위 FCM 푸시와 주소 정보를 보냅니다.
+- **신뢰 기반 네트워크**: 초대와 수락으로 연결된 지인끼리만 호출과 위치를 주고받습니다.
 - **개인정보 보호**: 전화번호와 디바이스 토큰을 암호화해 저장하고, 만료된 호출과 위치 데이터를 자동으로 정리합니다.
-
----
-
-## 팀원 소개
-
-| 역할 | 이름 |
-| --- | --- |
-| Frontend / PM | 오영일 |
-| Backend | 손세영 |
-
----
 
 ## 주요 기능
 
 | 기능 | 설명 |
 | --- | --- |
-| 회원가입 / 로그인 | 이메일 인증 기반 일반 회원가입, 비밀번호 재설정, JWT 기반 인증 |
-| 소셜 로그인 | Kakao, Google, Apple 로그인 및 신규 회원 온보딩 |
+| 회원가입 / 로그인 | 이메일 인증 기반 일반 회원가입, 비밀번호 재설정, JWT 인증 |
+| 소셜 로그인 | Kakao, Google, Apple 로그인과 신규 회원 온보딩 |
 | 지인 연결 | 전화번호 기반 사용자 검색, 지인 초대(수락/거절/취소), 지인 관리, 사용자 차단 |
-| 긴급 호출 | 원터치 호출 생성 및 종료, 최초 위치와 역지오코딩 주소 전달 |
-| 실시간 위치 공유 | 호출 중 발신자 위치를 WebSocket으로 실시간 전송, 사용자별 공유 ON/OFF 설정 |
-| 수신 알림 | 받은 긴급 알림 목록, 상세 조회, 알림 이력 |
-| 위치 지도 | 수신한 호출의 지도 마커와 이동 경로(`PAID`) 조회 |
-| 푸시 알림 | FCM 푸시 발송, 실패 시 재시도 |
+| 긴급 호출 | 원터치 호출 생성과 종료, 최초 위치와 역지오코딩 주소 전달 |
+| 실시간 위치 공유 | 호출 중 발신자 위치를 STOMP WebSocket으로 실시간 전송, 사용자별 공유 ON/OFF |
+| 수신 알림 / 지도 | 받은 긴급 알림 목록과 상세, 지도 마커와 이동 경로 조회 |
+| 푸시 알림 | FCM 푸시 발송과 실패 시 재시도 |
 | 마이페이지 | 프로필 조회/수정, 프로필 이미지 업로드, 회원 탈퇴 |
 
-### 긴급 호출 흐름
+## 긴급 호출 흐름
 
-1. 발신자가 긴급 호출을 생성하면 최초 위치가 저장되고, 연결된 지인에게 FCM 푸시가 발송됩니다.
-2. 수신자는 `/topic/emergency-alerts/{alertId}/location`을 구독해 위치를 실시간으로 받습니다.
-3. 발신자는 실시간 위치 공유 설정이 켜진 동안 일정 간격(기본 15초)으로 위치를 전송합니다.
-   - `PAID` 플랜: 위치 이력을 누적 저장해 이동 경로를 제공합니다.
-   - `FREE` 플랜: 최신 위치 한 건만 유지(덮어쓰기)합니다.
-4. 호출은 발신자가 직접 종료하거나 생성 후 24시간이 지나면 만료되며, 스케줄러가 관련 데이터를 정리합니다.
+```mermaid
+sequenceDiagram
+    participant S as 발신자 앱
+    participant API as 내 곁에 API
+    participant FCM as FCM
+    participant R as 수신자 앱
 
----
+    S->>API: POST /api/v1/emergency-alerts (최초 위치)
+    API->>API: 호출, 최초 위치, 수신자 저장
+    API-->>FCM: 긴급 알림 푸시 요청
+    FCM-->>R: 푸시 알림
+    R->>API: STOMP SUBSCRIBE /topic/emergency-alerts/{alertId}/location
+    loop 실시간 위치 공유 ON, 15초 간격
+        S->>API: STOMP SEND /app/emergency-alerts/{alertId}/location/{paid|free}
+        API-->>R: 위치 브로드캐스트
+    end
+    S->>API: POST /api/v1/emergency-alerts/{alertId}/end
+```
+
+- 최초 위치는 발신자의 실시간 위치 공유 설정과 관계없이 수신자에게 전달됩니다. 이후 위치는 설정이 켜져 있을 때만 전송됩니다.
+- `PAID` 플랜은 위치 이력을 누적 저장해 이동 경로를 제공하고, `FREE` 플랜은 최신 위치 한 건만 유지합니다.
+
+> [!IMPORTANT]
+> 긴급 호출은 발신자가 종료하거나 생성 후 24시간이 지나면 만료됩니다. 만료된 호출에는 위치 갱신과 신규 구독이 거부되며, WebSocket 재연결로 유효기간이 연장되지 않습니다.
+
+## 아키텍처
+
+```mermaid
+flowchart TB
+    App["모바일 앱"]
+    Nginx["Nginx<br/>리버스 프록시, Blue-Green 전환"]
+    API["Spring Boot API<br/>Azure VM (Docker)"]
+    MySQL[("MySQL")]
+    Redis[("Redis")]
+    Ext["외부 서비스<br/>FCM / Azure Blob Storage / Kakao 로컬 API<br/>Kakao, Google, Apple 로그인 / SMTP"]
+
+    App -- "REST (HTTPS)<br/>STOMP over WebSocket" --> Nginx --> API
+    API --> MySQL
+    API --> Redis
+    API --> Ext
+```
 
 ## 기술 스택
 
-### Backend
-
-| 항목 | 사용 기술 / 라이브러리 |
+| 구분 | 기술 |
 | --- | --- |
-| Language | Java 17 |
-| Framework | Spring Boot 4.1, Spring Web MVC |
+| Language / Framework | Java 17, Spring Boot 4.1, Spring Web MVC |
 | 실시간 통신 | Spring WebSocket (STOMP) |
 | Security | Spring Security, JWT (jjwt), OAuth2/OIDC 토큰 검증 |
 | Database | MySQL 8.4, Spring Data JPA, Flyway |
@@ -85,102 +97,35 @@
 | 모니터링 | Spring Boot Actuator, Micrometer Prometheus |
 | 인프라 | Docker, GitHub Actions, Azure Container Registry, Azure VM, Nginx |
 
-### App
-
-| 항목 | 사용 기술 / 라이브러리 |
-| --- | --- |
-| Language | TypeScript |
-| Framework | React Native 0.85, Expo 56 |
-| Platform | Android / iOS |
-
----
-
-## 백엔드 프로젝트 구조
+### 프로젝트 구조
 
 ```text
 src/main/java/com/gyeote/gyeote_api
-├── domain/                 # 비즈니스 도메인
-│   ├── auth/               # 회원가입, 로그인, 소셜 로그인, 이메일 인증
-│   ├── user/               # 프로필, 실시간 위치 공유 설정, 탈퇴
-│   ├── contact/            # 지인 초대, 지인 관리, 차단
-│   ├── emergency/          # 긴급 호출, 위치 갱신, 역지오코딩
-│   ├── alert/              # 수신 긴급 알림
-│   ├── location/           # 지도 마커, 이동 경로
-│   ├── device/             # FCM 디바이스 토큰
-│   └── notification/       # FCM 발송 및 재시도
-└── global/                 # 공통 인프라
-    ├── auth/
-    ├── config/
-    ├── exception/
-    ├── response/
-    ├── security/           # JWT, 암호화, WebSocket 인증
-    ├── storage/            # Azure Blob Storage, 파일 검증
-    └── websocket/
+├── domain/            # auth, user, contact, emergency, alert, location, device, notification
+└── global/            # auth, config, exception, response, security, storage, websocket
 
 src/main/resources
-├── application.yaml        # 공통 설정
-├── application-local.yaml  # 로컬 설정
-├── application-prod.yaml   # 운영 설정
-└── db/migration/           # Flyway 마이그레이션 SQL
+├── application*.yaml  # 공통 / local / prod 설정
+└── db/migration/      # Flyway 마이그레이션 SQL
 
-database/migrations/        # 마이그레이션 운영 문서
-docker/                     # 로컬 / Blue-Green Compose, Nginx 설정
-script/                     # 배포, AsyncAPI 문서 생성 스크립트
-docs/                       # AsyncAPI 명세, 작업 문서
+docs/asyncapi.yaml     # STOMP WebSocket API 명세
 ```
-
----
 
 ## API 문서
 
-- REST API: 애플리케이션 실행 후 `/swagger-ui/index.html`
-- STOMP WebSocket API UI: 애플리케이션 실행 후 `/asyncapi/`
-- AsyncAPI 원본: [`docs/asyncapi.yaml`](docs/asyncapi.yaml)
-- 헬스 체크: `/health`
-
-AsyncAPI HTML 문서를 로컬에서 다시 생성하려면 Node.js가 설치된 환경에서 실행합니다.
-
-```bash
-./script/generate-asyncapi-docs.sh
-```
-
----
-
-## 시스템 아키텍처
-
-```text
-┌──────────────────────────┐
-│   Mobile App              │  React Native (Expo)
-└────────────┬─────────────┘
-             │  REST (HTTPS) / STOMP over WebSocket
-┌────────────▼─────────────┐
-│   Nginx                   │  리버스 프록시, Blue-Green 전환
-└────────────┬─────────────┘
-             │
-┌────────────▼─────────────┐
-│   Spring Boot API         │  Azure VM (Docker)
-└──────┬─────────────┬─────┘
-       │             │
-┌──────▼──────┐ ┌────▼──────┐
-│   MySQL      │ │   Redis    │
-└─────────────┘ └───────────┘
-             │
-┌────────────▼──────────────────────────────┐
-│   External Services                         │
-│  FCM / Azure Blob Storage / Kakao 로컬 API  │
-│  Kakao·Google·Apple 로그인 / SMTP 메일      │
-└────────────────────────────────────────────┘
-```
-
----
-
-## Repositories
-
-| Repo | 설명 |
+| 문서 | 경로 |
 | --- | --- |
-| [By-My-Side-App](https://github.com/By-My-Side-Dev/By-My-Side-App) | 모바일 앱 (React Native, Expo) |
-| [By-My-Side-Backend](https://github.com/By-My-Side-Dev/By-My-Side-Backend) | 백엔드 API 서버 (Spring Boot) |
+| REST API (Swagger UI) | `/swagger-ui/index.html` |
+| STOMP WebSocket API | `/asyncapi/` |
+| AsyncAPI 원본 | [`docs/asyncapi.yaml`](docs/asyncapi.yaml) |
+| 헬스 체크 | `/health` |
 
----
+> [!TIP]
+> AsyncAPI HTML 문서는 Node.js 환경에서 `./script/generate-asyncapi-docs.sh`로 다시 생성할 수 있습니다.
 
-내 곁에 © 2026
+## 팀
+
+| 역할 | 이름 |
+| --- | --- |
+| Frontend / PM | 오영일 |
+| Backend | 손세영 |
