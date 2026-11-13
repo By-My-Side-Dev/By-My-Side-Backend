@@ -1,4 +1,4 @@
-# 곁에 GYEOTE (위급 상황 실시간 위치 공유 안심 서비스)
+# 내 곁에 (위급 상황 실시간 위치 공유 안심 서비스)
 
 "위급한 순간, 원터치로 내 위치를 가장 믿을 수 있는 사람에게"
 
@@ -9,7 +9,9 @@
 - [프로젝트 개요](#프로젝트-개요)
 - [팀원 소개](#팀원-소개)
 - [주요 기능](#주요-기능)
-- [Backend](#backend)
+- [기술 스택](#기술-스택)
+- [백엔드 프로젝트 구조](#백엔드-프로젝트-구조)
+- [API 문서](#api-문서)
 - [시스템 아키텍처](#시스템-아키텍처)
 - [Repositories](#repositories)
 
@@ -19,7 +21,7 @@
 
 폭력, 납치, 급박한 신체 위협 같은 위기 상황에서는 피해자가 직접 112에 전화를 걸거나 상황을 말로 설명하기 어렵습니다. 반대로 기존 위치 공유 앱은 평상시에도 위치를 계속 수집해 사생활 침해 우려와 배터리 소모가 큽니다. 또한 실제 위기 상황에서 나를 도와줄 수 있는 가족, 친구와의 신뢰 기반 연결망도 부족합니다.
 
-**곁에**는 사용자가 도움 요청 버튼을 한 번 누르면 미리 연결해 둔 지인에게 긴급 알림과 현재 위치를 즉시 전달하고, 호출이 진행되는 동안 실시간 위치를 공유해 지인이 신고 등 대리 대응을 빠르게 할 수 있도록 돕는 실시간 안심 보호 서비스입니다.
+**내 곁에**는 사용자가 도움 요청 버튼을 한 번 누르면 미리 연결해 둔 지인에게 긴급 알림과 현재 위치를 즉시 전달하고, 호출이 진행되는 동안 실시간 위치를 공유해 지인이 신고 등 대리 대응을 빠르게 할 수 있도록 돕는 실시간 안심 보호 서비스입니다.
 
 ### 주요 특징
 
@@ -36,9 +38,7 @@
 
 | 역할 | 이름 |
 | --- | --- |
-| PM | (작성 필요) |
-| Design | (작성 필요) |
-| Frontend | (작성 필요) |
+| Frontend / PM | 오영일 |
 | Backend | 손세영 |
 
 ---
@@ -68,9 +68,9 @@
 
 ---
 
-## Backend
+## 기술 스택
 
-### 기술 스택
+### Backend
 
 | 항목 | 사용 기술 / 라이브러리 |
 | --- | --- |
@@ -85,7 +85,17 @@
 | 모니터링 | Spring Boot Actuator, Micrometer Prometheus |
 | 인프라 | Docker, GitHub Actions, Azure Container Registry, Azure VM, Nginx |
 
-### 백엔드 프로젝트 구조
+### App
+
+| 항목 | 사용 기술 / 라이브러리 |
+| --- | --- |
+| Language | TypeScript |
+| Framework | React Native 0.85, Expo 56 |
+| Platform | Android / iOS |
+
+---
+
+## 백엔드 프로젝트 구조
 
 ```text
 src/main/java/com/gyeote/gyeote_api
@@ -119,7 +129,9 @@ script/                     # 배포, AsyncAPI 문서 생성 스크립트
 docs/                       # AsyncAPI 명세, 작업 문서
 ```
 
-### API 문서
+---
+
+## API 문서
 
 - REST API: 애플리케이션 실행 후 `/swagger-ui/index.html`
 - STOMP WebSocket API UI: 애플리케이션 실행 후 `/asyncapi/`
@@ -132,71 +144,13 @@ AsyncAPI HTML 문서를 로컬에서 다시 생성하려면 Node.js가 설치된
 ./script/generate-asyncapi-docs.sh
 ```
 
-### 로컬 실행
-
-1. JDK 17, Docker를 준비합니다.
-2. `.env.local`에 아래 환경 변수를 설정합니다. 비밀 정보이므로 **절대 커밋하지 않습니다.**
-
-   | 구분 | 환경 변수 |
-   | --- | --- |
-   | DB | `SPRING_DATASOURCE_URL`, `DB_USERNAME`, `DB_PASSWORD` |
-   | Redis | `REDIS_IP`, `REDIS_PORT` |
-   | JWT | `JWT_SECRET` |
-   | 개인정보 암호화 | `PHONE_ENC_KEY`, `PHONE_HMAC_SECRET`, `PHONE_PEPPER`, `FCM_TOKEN_ENC_KEY` |
-   | 소셜 로그인 | `GOOGLE_OAUTH_CLIENT_IDS`, `APPLE_OAUTH_CLIENT_IDS` |
-   | Kakao | `KAKAO_REST_API_KEY` |
-   | Firebase | `FIREBASE_PROJECT_ID` |
-   | Azure Storage | `AZURE_STORAGE_ACCOUNT_NAME`, `AZURE_STORAGE_CONTAINER_NAME` |
-   | WebSocket | `WEBSOCKET_ALLOWED_ORIGIN_PATTERNS` |
-   | 메일 | `MAIL_ENABLED`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` |
-
-3. MySQL과 Redis를 실행합니다.
-
-   ```bash
-   docker compose -f docker/docker-compose.local.yml --env-file .env.local up -d
-   ```
-
-4. 애플리케이션을 실행합니다. 기본 프로필은 `local`입니다.
-
-   ```bash
-   ./gradlew bootRun
-   ```
-
-5. 테스트를 실행합니다.
-
-   ```bash
-   ./gradlew test
-   ```
-
-> `local` 프로필은 Hibernate `ddl-auto: create`로 실행할 때마다 스키마를 다시 생성하며 Flyway를 실행하지 않습니다.
-> `prod` 프로필은 Flyway로 스키마를 관리하고 Hibernate는 `validate`만 수행합니다.
-
-### 배포
-
-- 배포 환경: Azure VM (Docker 컨테이너)
-- 이미지 저장소: Azure Container Registry
-- 배포 방식: `main` 브랜치에 push되면 GitHub Actions가 빌드, 이미지 push, Blue-Green 무중단 배포를 수행합니다.
-  1. AsyncAPI 문서 생성 및 애플리케이션 빌드
-  2. Docker 이미지 빌드 후 ACR에 push
-  3. Azure VM에서 `script/deploy.sh` 실행
-     - 현재 활성 색상(blue/green)의 반대 색상 컨테이너를 띄웁니다.
-     - `/health` 헬스 체크에 성공하면 Nginx upstream을 전환하고 기존 컨테이너를 종료합니다.
-     - 헬스 체크에 실패하면 새 컨테이너를 내리고 기존 버전을 유지합니다.
-
-### 기여 규칙
-
-- 작업 전 GitHub 이슈를 만들고 `develop`에서 `feature/#{이슈번호}-{작업명}` 형식으로 브랜치를 생성합니다.
-- 커밋 메시지: `{type}: {한국어 요약} (#{이슈번호})`
-- PR은 `develop`을 대상으로 하며 `.github/PULL_REQUEST_TEMPLATE.md`를 따릅니다.
-- 자세한 규칙은 [`AGENTS.md`](AGENTS.md)를 참고합니다.
-
 ---
 
 ## 시스템 아키텍처
 
 ```text
 ┌──────────────────────────┐
-│   Mobile App              │  Android / iOS
+│   Mobile App              │  React Native (Expo)
 └────────────┬─────────────┘
              │  REST (HTTPS) / STOMP over WebSocket
 ┌────────────▼─────────────┐
@@ -224,9 +178,9 @@ AsyncAPI HTML 문서를 로컬에서 다시 생성하려면 Node.js가 설치된
 
 | Repo | 설명 |
 | --- | --- |
-| [gyeote-backend](https://github.com/GYEOTE-project/gyeote-backend) | 백엔드 API 서버 (Spring Boot) |
-| (작성 필요) | 모바일 앱 클라이언트 |
+| [By-My-Side-App](https://github.com/By-My-Side-Dev/By-My-Side-App) | 모바일 앱 (React Native, Expo) |
+| [By-My-Side-Backend](https://github.com/By-My-Side-Dev/By-My-Side-Backend) | 백엔드 API 서버 (Spring Boot) |
 
 ---
 
-곁에 GYEOTE © 2026
+내 곁에 © 2026
