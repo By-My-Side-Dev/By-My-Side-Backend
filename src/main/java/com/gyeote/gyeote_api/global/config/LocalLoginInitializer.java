@@ -24,7 +24,7 @@ import java.nio.file.StandardOpenOption;
 /**
  * local 프로필 전용 개발용 시드 데이터.
  * spring.jpa.hibernate.ddl-auto=create라 로컬은 앱을 켤 때마다 스키마가 새로 만들어지므로,
- * 매번 시작 시 테스트 유저(id=1)를 다시 심고, 로그인 없이 바로 API를 호출해볼 수 있도록 매번 새 JWT를 발급해 파일로 저장한다.
+ * 매번 시작 시 테스트 유저 2명을 다시 심고, 로그인 없이 바로 API를 호출해볼 수 있도록 매번 새 JWT를 발급해 파일로 저장한다.
  */
 @Slf4j
 @Component
@@ -48,19 +48,8 @@ public class LocalLoginInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        User user = userRepository.findByLoginIdAndDeletedAtIsNull(TEST_LOGIN_ID)
-                .orElseGet(this::createTestUser);
-
-        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
-
-        // Swagger의 Authorize 입력창은 bearer 스킴이라 토큰값만 넣으면 "Bearer "를 자동으로 붙여서 보낸다.
-        String content = """
-                [테스트유저] userId=%d, loginId=%s
-                accessToken: %s
-                refreshToken: %s
-
-                """.formatted(user.getId(), TEST_LOGIN_ID, accessToken, refreshToken);
+        String content = initializeTestUser("테스트유저", TEST_LOGIN_ID, "testuser@example.com", TEST_PHONE)
+                + initializeTestUser("테스트유저2", "testuser2", "testuser2@example.com", "01000000001");
 
         try {
             Files.writeString(
@@ -79,11 +68,27 @@ public class LocalLoginInitializer implements CommandLineRunner {
         }
     }
 
-    private User createTestUser() {
+    private String initializeTestUser(String name, String loginId, String email, String phone) {
+        User user = userRepository.findByLoginIdAndDeletedAtIsNull(loginId)
+                .orElseGet(() -> createTestUser(name, loginId, email, phone));
+
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+
+        // Swagger의 Authorize 입력창은 bearer 스킴이라 토큰값만 넣으면 "Bearer "를 자동으로 붙여서 보낸다.
+        return """
+                [%s] userId=%d, loginId=%s
+                accessToken: %s
+                refreshToken: %s
+
+                """.formatted(user.getName(), user.getId(), loginId, accessToken, refreshToken);
+    }
+
+    private User createTestUser(String name, String loginId, String email, String phone) {
         User user = User.builder()
-                .name("테스트유저")
-                .loginId(TEST_LOGIN_ID)
-                .email("testuser@example.com")
+                .name(name)
+                .loginId(loginId)
+                .email(email)
                 .passwordHash(passwordEncoder.encode(TEST_PASSWORD))
                 .agreeLocation(true)
                 .agreeTerms(true)
@@ -93,7 +98,7 @@ public class LocalLoginInitializer implements CommandLineRunner {
         user.activate();
         User savedUser = userRepository.save(user);
 
-        String normalizedPhone = phoneCryptoService.normalize(TEST_PHONE);
+        String normalizedPhone = phoneCryptoService.normalize(phone);
         userPhoneRepository.save(UserPhone.builder()
                 .user(savedUser)
                 .phoneEncrypted(phoneCryptoService.encrypt(normalizedPhone))
