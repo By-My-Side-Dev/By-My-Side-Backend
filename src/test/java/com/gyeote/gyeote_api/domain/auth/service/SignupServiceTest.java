@@ -61,8 +61,8 @@ class SignupServiceTest {
         when(passwordEncoder.encode(any())).thenReturn("encoded-password");
 
         assertDoesNotThrow(() -> {
-            signupService.signup(회원가입_요청_생성("first-user", phone));
-            signupService.signup(회원가입_요청_생성("second-user", phone));
+            signupService.signup(request("first-user", phone));
+            signupService.signup(request("second-user", phone));
         });
 
         verify(userPhoneRepository, org.mockito.Mockito.times(2)).save(any(UserPhone.class));
@@ -77,7 +77,7 @@ class SignupServiceTest {
         when(phoneCryptoService.encrypt("01012345678")).thenReturn(new byte[]{1, 2, 3});
         when(passwordEncoder.encode("password123")).thenReturn("encoded-password");
 
-        service.signup(회원가입_요청_생성("regular-user", "01012345678"));
+        service.signup(request("regular-user", "01012345678"));
 
         ArgumentCaptor<User> user = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(user.capture());
@@ -95,7 +95,7 @@ class SignupServiceTest {
         when(phoneCryptoService.encrypt("01012345678")).thenReturn(new byte[]{1, 2, 3});
         when(passwordEncoder.encode("password123")).thenReturn("encoded-password");
 
-        service.completeSocialSignup(소셜_회원가입_요청_생성());
+        service.completeSocialSignup(socialRequest());
 
         ArgumentCaptor<User> user = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(user.capture());
@@ -116,17 +116,17 @@ class SignupServiceTest {
                 .thenReturn(Optional.of(existingUser));
         when(passwordEncoder.matches("password123", "encoded-password")).thenReturn(true);
 
-        service.completeSocialSignup(소셜_회원가입_요청_생성());
+        service.completeSocialSignup(socialRequest());
 
         assertTrue(existingUser.isRealtimeLocationEnabled());
     }
 
-    private SocialSignupCompleteRequest 소셜_회원가입_요청_생성() {
+    private SocialSignupCompleteRequest socialRequest() {
         return new SocialSignupCompleteRequest("onboarding-token", "사용자", "social-user",
                 "password123", "01012345678", true, true, true, true);
     }
 
-    private SignupRequest 회원가입_요청_생성(String loginId, String phone) {
+    private SignupRequest request(String loginId, String phone) {
         return new SignupRequest(
                 "테스트 사용자",
                 loginId,
