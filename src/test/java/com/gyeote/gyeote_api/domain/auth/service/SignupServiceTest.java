@@ -44,7 +44,7 @@ class SignupServiceTest {
     private EmailVerificationService emailVerificationService;
 
     @Test
-    void allowsDifferentAccountsToUseSamePhoneNumber() {
+    void 서로_다른_계정은_같은_전화번호로_가입할_수_있다() {
         SignupService signupService = new SignupService(
                 userRepository,
                 userPhoneRepository,
@@ -61,15 +61,15 @@ class SignupServiceTest {
         when(passwordEncoder.encode(any())).thenReturn("encoded-password");
 
         assertDoesNotThrow(() -> {
-            signupService.signup(request("first-user", phone));
-            signupService.signup(request("second-user", phone));
+            signupService.signup(회원가입_요청_생성("first-user", phone));
+            signupService.signup(회원가입_요청_생성("second-user", phone));
         });
 
         verify(userPhoneRepository, org.mockito.Mockito.times(2)).save(any(UserPhone.class));
     }
 
     @Test
-    void newRegularAccountStartsWithRealtimeLocationDisabled() {
+    void 일반_회원가입_신규_계정은_실시간_위치_공유가_비활성화된_상태로_생성된다() {
         SignupService service = new SignupService(userRepository, userPhoneRepository, passwordEncoder,
                 phoneCryptoService, onboardingTokenProvider, authService, emailVerificationService);
         when(phoneCryptoService.normalize("01012345678")).thenReturn("01012345678");
@@ -77,7 +77,7 @@ class SignupServiceTest {
         when(phoneCryptoService.encrypt("01012345678")).thenReturn(new byte[]{1, 2, 3});
         when(passwordEncoder.encode("password123")).thenReturn("encoded-password");
 
-        service.signup(request("regular-user", "01012345678"));
+        service.signup(회원가입_요청_생성("regular-user", "01012345678"));
 
         ArgumentCaptor<User> user = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(user.capture());
@@ -85,7 +85,7 @@ class SignupServiceTest {
     }
 
     @Test
-    void newSocialAccountStartsWithRealtimeLocationDisabled() {
+    void 소셜_회원가입_신규_계정은_실시간_위치_공유가_비활성화된_상태로_생성된다() {
         SignupService service = new SignupService(userRepository, userPhoneRepository, passwordEncoder,
                 phoneCryptoService, onboardingTokenProvider, authService, emailVerificationService);
         when(onboardingTokenProvider.parseOnboardingToken("onboarding-token"))
@@ -95,7 +95,7 @@ class SignupServiceTest {
         when(phoneCryptoService.encrypt("01012345678")).thenReturn(new byte[]{1, 2, 3});
         when(passwordEncoder.encode("password123")).thenReturn("encoded-password");
 
-        service.completeSocialSignup(socialRequest());
+        service.completeSocialSignup(소셜_회원가입_요청_생성());
 
         ArgumentCaptor<User> user = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(user.capture());
@@ -103,7 +103,7 @@ class SignupServiceTest {
     }
 
     @Test
-    void linkingSocialAccountPreservesEnabledRealtimeLocationSetting() {
+    void 기존_계정에_소셜_연동_시_활성화된_실시간_위치_공유_설정을_유지한다() {
         SignupService service = new SignupService(userRepository, userPhoneRepository, passwordEncoder,
                 phoneCryptoService, onboardingTokenProvider, authService, emailVerificationService);
         User existingUser = User.builder().name("기존 사용자").loginId("social-user")
@@ -116,17 +116,17 @@ class SignupServiceTest {
                 .thenReturn(Optional.of(existingUser));
         when(passwordEncoder.matches("password123", "encoded-password")).thenReturn(true);
 
-        service.completeSocialSignup(socialRequest());
+        service.completeSocialSignup(소셜_회원가입_요청_생성());
 
         assertTrue(existingUser.isRealtimeLocationEnabled());
     }
 
-    private SocialSignupCompleteRequest socialRequest() {
+    private SocialSignupCompleteRequest 소셜_회원가입_요청_생성() {
         return new SocialSignupCompleteRequest("onboarding-token", "사용자", "social-user",
                 "password123", "01012345678", true, true, true, true);
     }
 
-    private SignupRequest request(String loginId, String phone) {
+    private SignupRequest 회원가입_요청_생성(String loginId, String phone) {
         return new SignupRequest(
                 "테스트 사용자",
                 loginId,
