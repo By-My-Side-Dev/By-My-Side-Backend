@@ -53,7 +53,7 @@ class EmergencyExpirationTest {
     private FcmOutboxService fcmOutboxService;
 
     @Test
-    void resolveEndedAtReturnsCreatedAtPlus24HoursWhenExpiredAndNotManuallyEnded() {
+    void 수동_종료되지_않은_긴급_호출이_만료되면_종료_시각은_생성_시각에서_24시간_후이다() {
         LocalDateTime createdAt = LocalDateTime.of(2026, 11, 5, 12, 0, 0);
         EmergencyAlerts alert = createAlert(1L, createdAt);
 
@@ -71,7 +71,7 @@ class EmergencyExpirationTest {
     }
 
     @Test
-    void resolveEndedAtPreservesManualEndTimeWhenEndedWithin24Hours() {
+    void 생성_후_24시간_이내에_수동_종료된_긴급_호출은_수동_종료_시각을_유지한다() {
         LocalDateTime createdAt = LocalDateTime.of(2026, 11, 5, 12, 0, 0);
         LocalDateTime manualEndedAt = createdAt.plusHours(2);
         EmergencyAlerts alert = createAlert(1L, createdAt);
@@ -83,7 +83,7 @@ class EmergencyExpirationTest {
     }
 
     @Test
-    void locationUpdateAndEndEmergencyRejectExpiredAlertEvenBeforeSchedulerRuns() {
+    void 스케줄러_실행_전이라도_만료된_긴급_호출의_위치_갱신과_종료를_거부한다() {
         EmergencyService emergencyService = new EmergencyService(
                 userRepository,
                 emergencyAlertsRepository,
@@ -123,7 +123,7 @@ class EmergencyExpirationTest {
     }
 
     @Test
-    void cleanupSchedulersUpdateEndedAtForExpiredAlerts() {
+    void 정리_스케줄러는_만료된_긴급_호출의_종료_시각을_갱신한다() {
         AlertLocationCleanupScheduler locationScheduler = new AlertLocationCleanupScheduler(
                 alertLocationsRepository,
                 emergencyAlertsRepository
