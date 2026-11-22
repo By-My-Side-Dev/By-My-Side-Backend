@@ -108,7 +108,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void returnsInactiveWhenNoAlertExists() {
+    void 긴급_호출이_없으면_비활성_상태를_반환한다() {
         Long userId = 1L;
         User sender = mockUser(userId, UserPlan.FREE, true);
         when(userRepository.findUserById(userId)).thenReturn(Optional.of(sender));
@@ -123,7 +123,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void returnsInactiveWhenLatestAlertIsManuallyEndedWithoutFallingBackToOlderAlert() {
+    void 최신_긴급_호출이_수동_종료되었으면_이전_호출로_대체하지_않고_비활성_상태를_반환한다() {
         Long userId = 1L;
         User sender = mockUser(userId, UserPlan.PAID, true);
         LocalDateTime now = LocalDateTime.now();
@@ -144,7 +144,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void returnsInactiveWhenLatestAlertHasExpiredAfter24Hours() {
+    void 최신_긴급_호출이_24시간이_지나_만료되었으면_비활성_상태를_반환한다() {
         Long userId = 1L;
         User sender = mockUser(userId, UserPlan.FREE, true);
         EmergencyAlerts expiredAlert = createAlert(100L, sender, LocalDateTime.now().minusHours(24));
@@ -161,7 +161,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void returnsActiveButShouldNotSendWhenRealtimeLocationSharingIsDisabled() {
+    void 실시간_위치_공유가_꺼져_있으면_활성_상태지만_위치_전송은_하지_않는다() {
         Long userId = 1L;
         User sender = mockUser(userId, UserPlan.FREE, false);
         LocalDateTime now = LocalDateTime.now();
@@ -181,7 +181,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void returnsShouldNotSendWhenWithinUpdateInterval() {
+    void 위치_갱신_주기_이내이면_위치_전송을_하지_않는다() {
         Long userId = 1L;
         User sender = mockUser(userId, UserPlan.PAID, true);
         LocalDateTime now = LocalDateTime.now();
@@ -203,7 +203,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void returnsShouldSendLocationWhenIntervalHasElapsedOrReachedBoundary() {
+    void 위치_갱신_주기가_지났거나_경계에_도달하면_위치를_전송한다() {
         Long userId = 1L;
         User sender = mockUser(userId, UserPlan.FREE, true);
         LocalDateTime now = LocalDateTime.now();
@@ -225,7 +225,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void createsNewEmergencyWhenReusableFreeAlertExpiresWhileWaitingForLock() {
+    void 락_대기_중_재사용할_무료_호출이_만료되면_새_긴급_호출을_생성한다() {
         Long userId = 1L;
         User sender = mockUser(userId, UserPlan.FREE, true);
         EmergencyAlerts expiredWhileWaiting = createAlert(50L, sender, LocalDateTime.now().minusHours(24));
@@ -265,7 +265,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void createsNewPaidEmergencyAndEndsPreviousUnendedAlertsWithNow() {
+    void 유료_긴급_호출_생성_시_기존_미종료_호출을_현재_시각으로_종료한다() {
         Long userId = 1L;
         User sender = mockUser(userId, UserPlan.PAID, true);
         LocalDateTime previousCreatedAt = LocalDateTime.now().minusMinutes(10);
@@ -308,7 +308,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void retriesCreateEmergencyOnMysqlDeadlock1213WithRollbackAndNewTransaction() {
+    void MySQL_교착_상태_1213이면_롤백_후_새_트랜잭션으로_긴급_호출_생성을_재시도한다() {
         Long userId = 1L;
         User sender = mockUser(userId, UserPlan.PAID, true);
 
@@ -361,7 +361,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void doesNotRetryWhenCannotAcquireLockIsNotMysqlDeadlock1213() {
+    void 락_획득_실패가_MySQL_교착_상태_1213이_아니면_재시도하지_않는다() {
         Long userId = 1L;
         User sender = mockUser(userId, UserPlan.PAID, true);
 
@@ -403,7 +403,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void throwsDeadlockExceptionWhenMaxRetryAttemptsExceeded() {
+    void 최대_재시도_횟수를_초과하면_교착_상태_예외를_던진다() {
         Long userId = 1L;
         User sender = mockUser(userId, UserPlan.PAID, true);
 
@@ -444,7 +444,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void websocketSubscriptionRejectsWhenAlertExceeds24HoursCutoff() {
+    void 긴급_호출이_24시간_기준을_넘으면_WebSocket_구독을_거부한다() {
         WebSocketJwtChannelInterceptor interceptor = new WebSocketJwtChannelInterceptor(
                 jwtTokenProvider,
                 alertRecipientRepository
@@ -472,7 +472,7 @@ class CurrentEmergencyStatusTest {
     }
 
     @Test
-    void controllerDelegatesGetCurrentEmergencyStatus() {
+    void 컨트롤러는_현재_긴급_호출_상태_조회를_서비스에_위임한다() {
         EmergencyService mockService = mock(EmergencyService.class);
         EmergencyController controller = new EmergencyController(mockService, messagingTemplate);
         CurrentEmergencyStatusResponse expected = new CurrentEmergencyStatusResponse(

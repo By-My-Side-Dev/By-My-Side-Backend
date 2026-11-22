@@ -44,7 +44,7 @@ class SignupServiceTest {
     private EmailVerificationService emailVerificationService;
 
     @Test
-    void allowsDifferentAccountsToUseSamePhoneNumber() {
+    void 서로_다른_계정은_같은_전화번호로_가입할_수_있다() {
         SignupService signupService = new SignupService(
                 userRepository,
                 userPhoneRepository,
@@ -69,7 +69,7 @@ class SignupServiceTest {
     }
 
     @Test
-    void newRegularAccountStartsWithRealtimeLocationDisabled() {
+    void 일반_회원가입_신규_계정은_실시간_위치_공유가_비활성화된_상태로_생성된다() {
         SignupService service = new SignupService(userRepository, userPhoneRepository, passwordEncoder,
                 phoneCryptoService, onboardingTokenProvider, authService, emailVerificationService);
         when(phoneCryptoService.normalize("01012345678")).thenReturn("01012345678");
@@ -85,7 +85,7 @@ class SignupServiceTest {
     }
 
     @Test
-    void newSocialAccountStartsWithRealtimeLocationDisabled() {
+    void 소셜_회원가입_신규_계정은_실시간_위치_공유가_비활성화된_상태로_생성된다() {
         SignupService service = new SignupService(userRepository, userPhoneRepository, passwordEncoder,
                 phoneCryptoService, onboardingTokenProvider, authService, emailVerificationService);
         when(onboardingTokenProvider.parseOnboardingToken("onboarding-token"))
@@ -103,7 +103,7 @@ class SignupServiceTest {
     }
 
     @Test
-    void linkingSocialAccountPreservesEnabledRealtimeLocationSetting() {
+    void 기존_계정에_소셜_연동_시_활성화된_실시간_위치_공유_설정을_유지한다() {
         SignupService service = new SignupService(userRepository, userPhoneRepository, passwordEncoder,
                 phoneCryptoService, onboardingTokenProvider, authService, emailVerificationService);
         User existingUser = User.builder().name("기존 사용자").loginId("social-user")

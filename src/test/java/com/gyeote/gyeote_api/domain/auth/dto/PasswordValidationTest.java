@@ -20,13 +20,13 @@ class PasswordValidationTest {
     }
 
     @Test
-    void acceptsPasswordContainingLettersAndNumbersWithinLengthLimit() {
+    void 길이_제한_내에서_영문과_숫자를_포함한_비밀번호는_검증을_통과한다() {
         assertThat(passwordMessages(signupRequest("password1234"))).isEmpty();
         assertThat(passwordMessages(socialSignupRequest("password1234"))).isEmpty();
     }
 
     @Test
-    void rejectsPasswordThatViolatesEachRule() {
+    void 비밀번호_규칙을_위반하면_규칙별_오류_메시지를_반환한다() {
         assertThat(passwordMessages(signupRequest("abc123")))
                 .contains("SIGNUP_PASSWORD_TOO_SHORT");
         assertThat(passwordMessages(signupRequest("a".repeat(64) + "1")))
@@ -38,7 +38,7 @@ class PasswordValidationTest {
     }
 
     @Test
-    void appliesSameRulesToSocialSignup() {
+    void 소셜_회원가입에도_동일한_비밀번호_규칙을_적용한다() {
         assertThat(passwordMessages(socialSignupRequest("12345678")))
                 .contains("SIGNUP_PASSWORD_LETTER_REQUIRED");
         assertThat(passwordMessages(socialSignupRequest("abcdefgh")))
